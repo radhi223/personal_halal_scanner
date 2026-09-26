@@ -395,5 +395,19 @@ const midCrop = computeIngredientCrop(midLine, 1000, 2000);
 check('crop keeps ingredient line with たんぱく質', midCrop?.rect.height, 138);
 check('crop stops at real boundary', midCrop?.boundaryText, '栄養成分表示 100g当り');
 
+// 22. Truncated-first-char OCR variants (seen after hybrid crop passes).
+const s12 = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  'エン酸、ラメル、かんす、んにく、ピタ三ンB2'
+);
+const s12m = new Map(s12.filter((f) => f.match).map((f) => [f.normalized, f.match!]));
+check('エン酸 -> citric', s12m.get(normalize('エン酸'))?.entry.id, 'rule:citric');
+check('ラメル -> caramel', s12m.get(normalize('ラメル'))?.entry.id, 'rule:caramel');
+check('かんす -> kansui', s12m.get(normalize('かんす'))?.entry.id, 'rule:kansui');
+check('んにく -> garlic', s12m.get(normalize('んにく'))?.entry.id, 'rule:garlic');
+check('ピタ三ンB2 -> vitamin', s12m.get(normalize('ピタ三ンB2'))?.entry.id, 'rule:vitamin');
+check('noise: たんはく質', isLabelNoise(normalize('たんはく質')), true);
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

@@ -276,7 +276,7 @@ export const CURATION_RULES: CurationRule[] = [
   },
 
   // --- common plant / mineral ingredients (clearly halal) --------------------
-  halalRule('garlic', 'Garlic / にんにく', [/にんにく/, /ニンニク/, /大蒜/], 'plant', 'Bawang putih (nabati), halal.'),
+  halalRule('garlic', 'Garlic / にんにく', [/にんにく/, /んにく/, /ニンニク/, /大蒜/], 'plant', 'Bawang putih (nabati), halal.'),
   halalRule('onion', 'Onion / 玉ねぎ', [/玉ねぎ/, /玉葱/, /たまねぎ/, /オニオン/], 'plant', 'Bawang bombai (nabati), halal.'),
   halalRule('ginger', 'Ginger / しょうが', [/しょうが/, /生姜/, /ショウガ/], 'plant', 'Jahe (nabati), halal.'),
   halalRule('carrot', 'Carrot / にんじん', [/にんじん/, /人参/, /ニンジン/], 'plant', 'Wortel (nabati), halal.'),
@@ -308,7 +308,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('breadcrumbs', 'Breadcrumbs / パン粉', [/パン粉/], 'grain', 'Tepung roti, halal.'),
   halalRule('phosphate', 'Phosphate / リン酸', [/リン酸/], 'additive', 'Garam fosfat (mineral), halal.'),
   halalRule('palm-oil', 'Palm oil / パーム油', [/パーム油/, /パーム/], 'fat', 'Minyak sawit (nabati), halal.'),
-  halalRule('caramel', 'Caramel / カラメル', [/カラメル/], 'colorant', 'Karamel dari gula, halal.'),
+  halalRule('caramel', 'Caramel / カラメル', [/カラメル/, /ラメル/], 'colorant', 'Karamel dari gula, halal.'),
   halalRule('chili', 'Chili / 唐辛子', [/唐辛子/, /とうがらし/, /トウガラシ/], 'plant', 'Cabai (nabati), halal.'),
   halalRule('ketchup', 'Ketchup / ケチャップ', [/ケチャップ/], 'condiment', 'Saus tomat, halal.'),
   halalRule('pickles', 'Pickles / ピクルス', [/ピクルス/], 'plant', 'Acar sayur, halal.'),
@@ -323,7 +323,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('carrageenan', 'Carrageenan / カラギーナン', [/カラギーナン/], 'additive', 'Karagenan rumput laut, halal.'),
   halalRule('ph-adjuster', 'pH adjuster', [/ph調/], 'additive', 'Pengatur pH, umumnya halal.'),
   halalRule('antioxidant', 'Antioxidant / 酸化防止剤', [/酸化防止剤/, /抗氧化/], 'additive', 'Antioksidan, umumnya halal.'),
-  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /vc/, /ve/], 'additive', 'Vitamin, halal.'),
+  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /ピタ三ン/, /ピタミン/, /vc/, /ve/], 'additive', 'Vitamin, halal.'),
   halalRule('shallot', 'Shallot / シャロット', [/シャロット/, /エシャロット/, /シヤロット/], 'plant', 'Bawang merah (nabati), halal.'),
   halalRule('star-anise', 'Star anise / スターアニス', [/スターアニス/, /スターニス/, /スター二ス/, /八角/], 'plant', 'Adas bintang (nabati), halal.'),
   halalRule('chili-powder', 'Chili powder / チリパウダー', [/チリパウダ/, /チリパウ/, /チリペッパー/], 'plant', 'Bubuk cabai (nabati), halal.'),
@@ -332,7 +332,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('chutney', 'Chutney / チャツネ', [/チャツネ/], 'condiment', 'Chatni (buah/sayur), halal.'),
   halalRule('silica', 'Silica / 二酸化ケイ素', [/二酸化ケイ素/, /酸化ケイ素/, /二酸化珪素/], 'additive', 'Silika (mineral), halal.'),
   halalRule('calcium', 'Calcium salt / 酸Ca', [/酸ca/, /炭酸/], 'additive', 'Garam kalsium (mineral), halal.'),
-  halalRule('citric', 'Citric acid / クエン酸', [/クエン酸/, /クエン/, /柠檬酸/], 'additive', 'Asam sitrat, halal.'),
+  halalRule('citric', 'Citric acid / クエン酸', [/クエン酸/, /クエン/, /柠檬酸/, /エン酸/], 'additive', 'Asam sitrat, halal.'),
   halalRule('lactic-acid', 'Lactic acid / 乳酸', [/乳酸/], 'additive', 'Asam laktat (fermentasi), halal.'),
   halalRule('malic', 'Malic acid / リンゴ酸', [/リンゴ酸/, /りんご酸/], 'additive', 'Asam malat, halal.'),
   halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/], 'additive', 'Asam amino penyedap, halal.'),
@@ -393,7 +393,7 @@ export const CURATION_RULES: CurationRule[] = [
 
   // --- instant noodles / snacks / bakery / sauces ----------------------------
   halalRule('raising-agent', 'Raising agent / 膨張剤', [/膨張剤/, /膨服剤/, /膨帳剤/, /ベーキングパウダー/, /炭酸水素/], 'additive', 'Pengembang (baking powder/soda), halal.'),
-  halalRule('kansui', 'Kansui / かんすい', [/かんすい/, /カンスイ/], 'additive', 'Air alkali (kansui) untuk mi, mineral, halal.'),
+  halalRule('kansui', 'Kansui / かんすい', [/かんすい/, /かんす/, /カンスイ/], 'additive', 'Air alkali (kansui) untuk mi, mineral, halal.'),
   halalRule('pectin', 'Pectin / ペクチン', [/ペクチン/], 'additive', 'Pektin buah, halal.'),
   halalRule('agar', 'Agar / 寒天', [/寒天/], 'additive', 'Agar rumput laut, halal.'),
   halalRule('starch-syrup', 'Starch syrup / 水飴', [/水飴/, /水あめ/, /還元水あめ/, /転化糖/, /粉あめ/], 'sweetener', 'Sirup pati, halal.'),
