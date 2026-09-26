@@ -1,5 +1,6 @@
 import TextRecognition, {
   TextRecognitionScript,
+  type TextRecognitionResult,
 } from '@react-native-ml-kit/text-recognition';
 
 /**
@@ -10,9 +11,16 @@ import TextRecognition, {
  * or a release build — not in plain Expo Go.
  */
 export async function recognizeJapanese(imageUri: string): Promise<string> {
-  const result = await TextRecognition.recognize(
-    imageUri,
-    TextRecognitionScript.JAPANESE
-  );
+  const result = await recognizeJapaneseDetailed(imageUri);
   return result.text ?? '';
+}
+
+/**
+ * Same as recognizeJapanese but keeps the block/line structure — used to locate
+ * the 原材料名 region in the image (each line carries a pixel frame).
+ */
+export async function recognizeJapaneseDetailed(
+  imageUri: string
+): Promise<TextRecognitionResult> {
+  return TextRecognition.recognize(imageUri, TextRecognitionScript.JAPANESE);
 }

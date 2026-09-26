@@ -9,10 +9,12 @@ import {
   loadCurated,
   loadDatabase,
 } from '@/lib/database';
+import { computeIngredientCrop } from '@/lib/autoCrop';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import {
   extractCandidates,
   extractIngredientSection,
+  isCropBoundary,
   isLabelNoise,
   normalize,
 } from '@/lib/normalize';
@@ -343,6 +345,55 @@ check('グリシン -> halal', s11m.get(normalize('グリシン'))?.entry.status
 check('キサンタン -> halal', s11m.get(normalize('キサンタン'))?.entry.status, 'halal');
 check('オリーブ油 -> halal', s11m.get(normalize('オリーブ油'))?.entry.status, 'halal');
 check('ベニコウジ色素 -> halal', s11m.get(normalize('ベニコウジ色素'))?.entry.status, 'halal');
+
+// 21. Phase 1: ingredient-region crop from ML Kit line frames (pure logic).
+const fakeResult = {
+  text: '',
+  blocks: [
+    {
+      text: '',
+      lines: [
+        { text: '商品名ハンバーガー', frame: { top: 40, left: 0, width: 300, height: 30 } },
+        { text: '原材料名 ロストチキン、パン', frame: { top: 100, left: 0, width: 500, height: 40 } },
+        { text: '砂糖、食塩', frame: { top: 150, left: 0, width: 300, height: 40 } },
+        { text: '乳化剤', frame: { top: 200, left: 0, width: 200, height: 40 } },
+        { text: '栄養成分表示', frame: { top: 260, left: 0, width: 300, height: 40 } },
+      ],
+    },
+  ],
+} as any;
+
+const crop = computeIngredientCrop(fakeResult, 1000, 2000);
+check('crop found', !!crop, true);
+check('crop starts at header', crop?.rect.originY, 76);
+check('crop stops before boundary', crop?.boundaryText, '栄養成分表示');
+check('crop line count', crop?.lines, 3);
+check('crop bottom excludes boundary', crop?.rect.height, 188);
+check('crop width full', crop?.rect.width, 940);
+
+const noHeader = { text: '', blocks: [{ text: '', lines: [{ text: 'こんにちは', frame: { top: 10, left: 0, width: 50, height: 20 } }] }] } as any;
+check('crop null when no header', computeIngredientCrop(noHeader, 1000, 2000), null);
+
+// Regression: a nutrition word appearing MID-LINE in an ingredient must not end the crop.
+check('crop boundary ignores mid-line たんぱく質', isCropBoundary('調味料(砂糖、植物性たんぱく質'), false);
+check('crop boundary matches line-start marker', isCropBoundary('栄養成分表示 100g当り'), true);
+
+const midLine = {
+  text: '',
+  blocks: [
+    {
+      text: '',
+      lines: [
+        { text: '原材料名 揚げめん(小麦粉)', frame: { top: 100, left: 0, width: 500, height: 40 } },
+        { text: '調味料(砂糖、植物性たんぱく質)', frame: { top: 150, left: 0, width: 500, height: 40 } },
+        { text: '栄養成分表示 100g当り', frame: { top: 200, left: 0, width: 400, height: 40 } },
+      ],
+    },
+  ],
+} as any;
+const midCrop = computeIngredientCrop(midLine, 1000, 2000);
+check('crop keeps ingredient line with たんぱく質', midCrop?.rect.height, 138);
+check('crop stops at real boundary', midCrop?.boundaryText, '栄養成分表示 100g当り');
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

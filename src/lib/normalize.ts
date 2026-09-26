@@ -110,6 +110,29 @@ const ADDRESS_RE =
 /** Measurement units — only treated as noise when the token also has digits. */
 const UNIT_RE = /(kcal|kg|mg|ml|cm|mm|グラム|キロ|ミリ|%|個|袋|本|枚|g)/;
 
+/** True if a text line looks like the ingredient-list header (原材料名 variants). */
+export function isIngredientHeader(text: string): boolean {
+  return SECTION_START.test(text ?? '');
+}
+
+/** True if a text line starts a different section (so the ingredient list ended). */
+export function isSectionBoundary(text: string): boolean {
+  return SECTION_STOP.test(text ?? '');
+}
+
+/**
+ * Stricter boundary used when CROPPING: the marker must be at the START of the
+ * line. Ingredient lines often *contain* nutrition words mid-line (e.g.
+ * "調味料(…、植物性たんぱく質)"), and stopping there truncates the list.
+ */
+const CROP_BOUNDARY =
+  /^\s*(栄養成分|栄養成分表示|製造者|製造所|販売者|加工者|輸入者|名称|品名|賞味期限|消費期限|保存方法|内容量|税込|税抜|アレルギー|特定原材|原産国|原産地|お問い合わせ|お客様相談|電話|〒|推定値|熱量|たんぱく質|脂質|炭水化物|食塩相当量|JAN|調理|作り方|加熱|電子レンジ|レンジ|注意|ください|開封|保存)/;
+
+/** Boundary check for cropping (anchored at line start). */
+export function isCropBoundary(text: string): boolean {
+  return CROP_BOUNDARY.test(text ?? '');
+}
+
 /** True if a normalized token is label metadata rather than an ingredient. */
 export function isLabelNoise(normalized: string): boolean {
   if (!normalized) return true;

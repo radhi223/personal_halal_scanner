@@ -121,7 +121,9 @@ export default function ResultScreen() {
       )}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Bagian yang dianalisis (原材料名)</Text>
+        <Text style={styles.cardTitle}>
+          Bagian yang dianalisis (原材料名){scan.cropped ? ' · auto-crop 2×' : ''}
+        </Text>
         <Text style={styles.rawText}>{scan.section || '(tidak ditemukan)'}</Text>
       </View>
 

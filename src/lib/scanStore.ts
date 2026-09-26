@@ -6,6 +6,8 @@ export interface LastScan {
   section: string;
   findings: ScanFinding[];
   createdAt: number;
+  /** True when we auto-cropped to the ingredient region and upscaled before OCR. */
+  cropped?: boolean;
 }
 
 /**

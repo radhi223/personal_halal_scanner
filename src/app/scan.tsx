@@ -11,11 +11,13 @@ import {
   View,
 } from 'react-native';
 
+import { computeIngredientCrop } from '@/lib/autoCrop';
 import { analyzeLayered } from '@/lib/matcher';
 import { getCatalogIndex, getCuratedIndex } from '@/lib/database';
 import { dblock, dlog, dscanId } from '@/lib/debug';
+import { cropAndUpscale } from '@/lib/imagePrep';
 import { extractIngredientSection } from '@/lib/normalize';
-import { recognizeJapanese } from '@/lib/ocr';
+import { recognizeJapanese, recognizeJapaneseDetailed } from '@/lib/ocr';
 import { recognizeJapanesePaddle } from '@/lib/ocrPaddle';
 import { setLastScan } from '@/lib/scanStore';
 import { colors } from '@/theme';
@@ -26,16 +28,48 @@ export default function ScanScreen() {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
 
-  async function processImage(imageUri: string) {
+  async function processImage(imageUri: string, imageWidth?: number, imageHeight?: number) {
     const sid = dscanId();
     const t0 = Date.now();
     setBusy(true);
     try {
-      // Run both engines; whichever succeeds contributes. Paddle is better on
-      // hard kanji, ML Kit is the proven fallback.
+      // Phase 1: locate the 原材料名 region from ML Kit line frames, then crop to
+      // it and upscale 2x. Attacking OCR error at the source (small text, noise)
+      // beats patching patterns after the fact.
+      let sourceUri = imageUri;
+      let cropped = false;
+      let fullText = '';
+      if (imageWidth && imageHeight) {
+        try {
+          const detail = await recognizeJapaneseDetailed(imageUri);
+          fullText = detail.text ?? '';
+          const cropResult = computeIngredientCrop(detail, imageWidth, imageHeight);
+          if (cropResult) {
+            const rect = cropResult.rect;
+            const prepped = await cropAndUpscale(imageUri, rect, 2);
+            sourceUri = prepped.uri;
+            cropped = true;
+            dlog(
+              `[${sid}] CROP ${rect.originX},${rect.originY} ${rect.width}x${rect.height} -> ${prepped.width}x${prepped.height} lines=${cropResult.lines}`
+            );
+            dlog(
+              `[${sid}] CROP_HDR "${cropResult.headerText}" STOP_AT "${cropResult.boundaryText}"`
+            );
+          } else {
+            dlog(`[${sid}] CROP none (header not found)`);
+          }
+        } catch (err) {
+          dlog(`[${sid}] CROP_ERR ${String(err)}`);
+        }
+      }
+
+      // Both engines run on the prepared image. Reuse the full-label ML Kit text
+      // when we did not crop, to avoid a duplicate pass.
+      const mlPromise =
+        !cropped && fullText ? Promise.resolve(fullText) : recognizeJapanese(sourceUri);
       const [ml, pp] = await Promise.allSettled([
-        recognizeJapanese(imageUri),
-        recognizeJapanesePaddle(imageUri),
+        mlPromise,
+        recognizeJapanesePaddle(sourceUri),
       ]);
       if (ml.status === 'rejected') dlog(`[${sid}] ML_ERR ${String(ml.reason)}`);
       if (pp.status === 'rejected') dlog(`[${sid}] PP_ERR ${String(pp.reason)}`);
@@ -43,7 +77,7 @@ export default function ScanScreen() {
       const mlText = ml.status === 'fulfilled' ? ml.value : '';
       const ppText = pp.status === 'fulfilled' ? pp.value : '';
       dlog(
-        `[${sid}] OCR ms=${Date.now() - t0} mlChars=${mlText.length} ppChars=${ppText.length} uri=${imageUri}`
+        `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} mlChars=${mlText.length} ppChars=${ppText.length}`
       );
 
       if (!mlText && !ppText) {
@@ -57,7 +91,7 @@ export default function ScanScreen() {
         );
       }
 
-      const mlSection = extractIngredientSection(mlText);
+      const mlSection = extractIngredientSection(mlText || fullText);
       const ppSection = extractIngredientSection(ppText);
       const combined = [mlSection, ppSection].filter(Boolean).join('\n');
       const findings = analyzeLayered(getCuratedIndex(), getCatalogIndex(), combined);
@@ -78,14 +112,16 @@ export default function ScanScreen() {
 
       setLastScan({
         rawText: [
-          mlText ? `[ML Kit]\n${mlText}` : '',
-          ppText ? `[PaddleOCR]\n${ppText}` : '',
+          cropped && fullText ? `[ML Kit · label penuh]\n${fullText}` : '',
+          mlText ? `[ML Kit${cropped ? ' · crop' : ''}]\n${mlText}` : '',
+          ppText ? `[PaddleOCR${cropped ? ' · crop' : ''}]\n${ppText}` : '',
         ]
           .filter(Boolean)
           .join('\n\n'),
         section: combined,
         findings,
         createdAt: Date.now(),
+        cropped,
       });
       router.replace('/result');
     } catch (err) {
@@ -99,8 +135,8 @@ export default function ScanScreen() {
   async function capture() {
     if (!cameraRef.current || !ready || busy) return;
     try {
-      const pic = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-      if (pic?.uri) await processImage(pic.uri);
+      const pic = await cameraRef.current.takePictureAsync({ quality: 1 });
+      if (pic?.uri) await processImage(pic.uri, pic.width, pic.height);
     } catch (err) {
       Alert.alert('Gagal memotret', String(err));
     }
@@ -112,8 +148,9 @@ export default function ScanScreen() {
       mediaTypes: ['images'],
       quality: 1,
     });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await processImage(result.assets[0].uri);
+    const asset = result.assets?.[0];
+    if (!result.canceled && asset?.uri) {
+      await processImage(asset.uri, asset.width, asset.height);
     }
   }
 

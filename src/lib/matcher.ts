@@ -115,8 +115,11 @@ function collapse(findings: ScanFinding[]): ScanFinding[] {
   // unknowns so they don't clutter the result.
   const strong = all.filter((f) => f.match && f.match.entry.status !== 'unknown');
   return all.filter((f) => {
-    if (!f.match || f.match.entry.status !== 'unknown') return true;
-    return !strong.some((s) => similarity(s.normalized, f.normalized) >= 0.4);
+    const weak = !f.match || f.match.entry.status === 'unknown';
+    if (!weak) return true;
+    // Short tokens need a higher bar (五葱 vs 玉葱 differ by one char out of two).
+    const threshold = f.normalized.length <= 3 ? 0.5 : 0.4;
+    return !strong.some((s) => similarity(s.normalized, f.normalized) >= threshold);
   });
 }
 
