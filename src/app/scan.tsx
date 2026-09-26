@@ -15,6 +15,7 @@ import { clampRect, computeIngredientCrop, scaleRect } from '@/lib/autoCrop';
 import { analyzeLayered } from '@/lib/matcher';
 import { getCatalogIndex, getCuratedIndex } from '@/lib/database';
 import { dblock, dlog, dscanId } from '@/lib/debug';
+import { appendScanRecord } from '@/lib/debugFile';
 import { cropAndUpscale, resizeToMaxWidth } from '@/lib/imagePrep';
 import { extractIngredientSection } from '@/lib/normalize';
 import { recognizeJapaneseDetailed } from '@/lib/ocr';
@@ -169,6 +170,22 @@ export default function ScanScreen() {
           .join(' | ')}`
       );
       dlog(`[${sid}] MISS ${unmatched.map((f) => f.raw).join(' | ')}`);
+
+      // Persistent debug record (logcat rotates away).
+      appendScanRecord({
+        sid,
+        at: new Date().toISOString(),
+        ms: Date.now() - t0,
+        cropped,
+        passes: texts.length,
+        coverage,
+        matched: matched.length,
+        unmatched: unmatched.length,
+        hits: matched.map((f) => `${f.raw}=${f.match!.entry.status}(${f.match!.entry.id})`),
+        miss: unmatched.map((f) => f.raw),
+        section: combined,
+        raw: texts,
+      });
 
       setLastScan({
         rawText: texts.map((t) => `[${t.label}]\n${t.text}`).join('\n\n'),

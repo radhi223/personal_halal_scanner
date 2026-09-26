@@ -35,6 +35,12 @@ export default function HomeScreen() {
         <Text style={styles.secondaryText}>Disclaimer &amp; Cara Pakai</Text>
       </Pressable>
 
+      <Pressable
+        style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+        onPress={() => router.push('/debug')}>
+        <Text style={styles.secondaryText}>Debug Scan (log tersimpan)</Text>
+      </Pressable>
+
       <View style={styles.card}>
         <Text style={styles.cardLabel}>Database lokal</Text>
         <Text style={styles.cardValue}>{curated.entries.length} bahan ditinjau</Text>

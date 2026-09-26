@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="scan" options={{ title: 'Pindai Label' }} />
         <Stack.Screen name="result" options={{ title: 'Hasil Pindai' }} />
         <Stack.Screen name="disclaimer" options={{ title: 'Disclaimer' }} />
+        <Stack.Screen name="debug" options={{ title: 'Debug Scan' }} />
       </Stack>
     </>
   );

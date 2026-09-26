@@ -43,7 +43,8 @@
         {
           "photosPermission": "Izinkan akses galeri untuk memilih foto label bahan makanan."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
