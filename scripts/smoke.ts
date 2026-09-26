@@ -484,5 +484,11 @@ for (const noise of ['灰水化物', 'はく質', '熟量', '表示', '相当量
   check(`noise: ${noise}`, isLabelNoise(normalize(noise)), true);
 }
 
+// 27. Round-8: long-vowel and dropped-n variants.
+const s15 = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'パ一ム油、レモグラス');
+const s15m = new Map(s15.filter((f) => f.match).map((f) => [f.normalized, f.match!]));
+check('パ一ム油 -> palm-oil', s15m.get(normalize('パ一ム油'))?.entry.id, 'rule:palm-oil');
+check('レモグラス -> lemon', s15m.get(normalize('レモグラス'))?.entry.id, 'rule:lemon');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
