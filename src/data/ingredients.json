@@ -1,0 +1,411 @@
+{
+  "version": "0.1.0-seed",
+  "updatedAt": "2026-09-26",
+  "entries": [
+    {
+      "id": "pork",
+      "names": ["豚肉", "ぶたにく", "ポーク", "pork", "豚", "ぶた"],
+      "status": "haram",
+      "category": "animal",
+      "reasoning": "Daging babi hukumnya haram secara eksplisit dalam Al-Qur'an (QS 2:173, 5:3, 6:145, 16:115), tanpa perbedaan pendapat ulama.",
+      "sources": ["QS Al-Baqarah 2:173", "LPPOM MUI — kriteria bahan haram"]
+    },
+    {
+      "id": "lard",
+      "names": ["ラード", "豚脂", "豚脂肪", "lard", "pork fat"],
+      "status": "haram",
+      "category": "animal",
+      "reasoning": "Lemak babi (lard) berasal dari babi, sehingga haram.",
+      "sources": ["QS Al-Baqarah 2:173", "LPPOM MUI — kriteria bahan haram"]
+    },
+    {
+      "id": "pork-extract",
+      "names": ["ポークエキス", "豚肉エキス", "豚エキス", "pork extract"],
+      "status": "haram",
+      "category": "animal",
+      "reasoning": "Ekstrak daging babi termasuk turunan babi, haram.",
+      "sources": ["QS Al-Baqarah 2:173", "LPPOM MUI — kriteria bahan haram"]
+    },
+    {
+      "id": "gelatin",
+      "names": ["ゼラチン", "ゼラチン質", "gelatin", "gelatine"],
+      "status": "syubhat",
+      "category": "animal",
+      "reasoning": "Gelatin bisa berasal dari babi (haram), sapi/ikan yang disembelih sesuai syariat (halal), atau sapi tanpa disembelih syar'i. Tanpa keterangan sumber/certifikasi, statusnya syubhat. Cari label 'halal' atau keterangan sumber ikan/sapi.",
+      "sources": ["LPPOM MUI — fatwa tentang gelatin", "JAKIM MS1500:2019"],
+      "eNumber": "E441"
+    },
+    {
+      "id": "collagen",
+      "names": ["コラーゲン", "コラーゲンペプチド", "collagen"],
+      "status": "syubhat",
+      "category": "animal",
+      "reasoning": "Kolagen umumnya turunan kulit/tulang hewan; status bergantung sumber (babi/haram, sapi syar'i/halal). Tanpa keterangan, syubhat.",
+      "sources": ["LPPOM MUI — turunan hewan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "alcohol",
+      "names": ["アルコール", "エタノール", "酒精", "ethanol", "alcohol"],
+      "status": "syubhat",
+      "category": "alcohol",
+      "reasoning": "Pemakaian alkohol/etanol sebagai pelarut atau bahan tambahan diperdebatkan. Sebagian ulama mengharamkan semua khamr, sebagian membolehkan alkohol non-khamr dalam kadar tertentu. Label halal diperlukan untuk kepastian.",
+      "sources": ["LPPOM MUI — fatwa alkohol dalam produk", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "mirin",
+      "names": ["みりん", "味醂", "本みりん", "mirin"],
+      "status": "syubhat",
+      "category": "alcohol",
+      "reasoning": "Mirin adalah bumbu manis beralkohol (jenis khamr dari beras). Banyak fatwa mengharamkan konsumsinya; 'みりん風調味料' (tanpa alkohol) berbeda.",
+      "sources": ["LPPOM MUI — bahan beralkohol", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "sake",
+      "names": ["日本酒", "清酒", "sake", "せいしゅ"],
+      "status": "haram",
+      "category": "alcohol",
+      "reasoning": "Sake adalah minuman khamr berbasis beras yang memabukkan, haram.",
+      "sources": ["QS Al-Maa'idah 5:90", "LPPOM MUI — khamr"]
+    },
+    {
+      "id": "wine",
+      "names": ["ワイン", "ぶどう酒", "葡萄酒", "wine"],
+      "status": "haram",
+      "category": "alcohol",
+      "reasoning": "Anggur/memabukkan termasuk khamr, haram.",
+      "sources": ["QS Al-Maa'idah 5:90", "LPPOM MUI — khamr"]
+    },
+    {
+      "id": "soy-sauce",
+      "names": ["醤油", "しょうゆ", "醬油", "soy sauce", "醤油エキス"],
+      "status": "syubhat",
+      "category": "fermented",
+      "reasoning": "Kecap Jepang dapat terbentuk alkohol alami saat fermentasi atau mengandung pengawet alkohol. Carilah produk bersertifikat halal.",
+      "sources": ["LPPOM MUI — produk fermentasi", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "emulsifier",
+      "names": ["乳化剤", "emulsifier", "乳化剤（大豆由来）"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Emulsifier bisa berasal dari tumbuhan (halal), sapi syar'i (halal), atau babi (haram). Tanpa keterangan sumber, syubhat.",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "monoglyceride",
+      "names": ["モノグリセリド", "グリセリン脂肪酸エステル", "モノおよびジグリセリン脂肪酸エステル", "monoglyceride"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Mono-/di-glyceride asam lemak dapat berasal dari lemak hewani (termasuk babi) atau nabati. Sumber menentukan status.",
+      "sources": ["EFSA — E471", "LPPOM MUI — bahan tambahan"],
+      "eNumber": "E471"
+    },
+    {
+      "id": "glycerin",
+      "names": ["グリセリン", "グリセロール", "glycerin", "glycerol"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Gliserin bisa dari lemak hewani (termasuk babi) atau nabati. Syubhat tanpa keterangan sumber.",
+      "sources": ["EFSA — E422", "LPPOM MUI — bahan tambahan"],
+      "eNumber": "E422"
+    },
+    {
+      "id": "shortening",
+      "names": ["ショートニング", "shortening"],
+      "status": "syubhat",
+      "category": "fat",
+      "reasoning": "Shortening adalah lemak terhidrogenasi yang bisa berbasis babi/sapi/ikan/nabati. Sumber menentukan status.",
+      "sources": ["LPPOM MUI — lemak", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "beef",
+      "names": ["牛肉", "ビーフ", "beef", "ぎゅうにく"],
+      "status": "syubhat",
+      "category": "animal",
+      "reasoning": "Daging sapi halal bila disembelih sesuai syariat, tetapi daging di Jepang umumnya tidak disembelih syar'i. Tanpa logo/sertifikasi halal, syubhat.",
+      "sources": ["QS Al-Baqarah 2:173 (prinsip)", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "chicken",
+      "names": ["鶏肉", "チキン", "若鶏肉", "chicken", "とりにく"],
+      "status": "syubhat",
+      "category": "animal",
+      "reasoning": "Daging ayam halal bila disembelih sesuai syariat, tetapi di Jepang umumnya tidak disembelih syar'i. Tanpa logo/sertifikasi halal, syubhat.",
+      "sources": ["QS Al-Baqarah 2:173 (prinsip)", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "lamb",
+      "names": ["羊肉", "ラム", "マトン", "lamb", "mutton"],
+      "status": "syubhat",
+      "category": "animal",
+      "reasoning": "Daging kambing/domba halal bila disembelih sesuai syariat, tetapi di Jepang umumnya tidak disembelih syar'i. Tanpa sertifikasi halal, syubhat.",
+      "sources": ["QS Al-Baqarah 2:173 (prinsip)", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "fish",
+      "names": ["魚肉", "白身魚", "魚", "さかな", "fish", "フィッシュ"],
+      "status": "halal",
+      "category": "animal",
+      "reasoning": "Ikan dan hasil laut pada dasarnya halal menurut mayoritas ulama.",
+      "sources": ["QS Al-Maa'idah 5:96", "LPPOM MUI — hasil laut"]
+    },
+    {
+      "id": "bonito",
+      "names": ["かつお", "鰹", "カツオ", "bonito", "かつお節"],
+      "status": "halal",
+      "category": "animal",
+      "reasoning": "Ikan cakalang/katsuo termasuk hasil laut, halal.",
+      "sources": ["QS Al-Maa'idah 5:96", "LPPOM MUI — hasil laut"]
+    },
+    {
+      "id": "rennet",
+      "names": ["レンネット", "レンニン", "rennet"],
+      "status": "syubhat",
+      "category": "enzyme",
+      "reasoning": "Rennet (enzim penggumpal susu) dapat berasal dari perut sapi/anak sapi atau mikroba. Jika dari hewan tanpa sembelihan syar'i, statusnya diperdebatkan. Cari 'microbial rennet'.",
+      "sources": ["LPPOM MUI — enzim", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "pepsin",
+      "names": ["ペプシン", "pepsin"],
+      "status": "syubhat",
+      "category": "enzyme",
+      "reasoning": "Pepsin umumnya berasal dari lambung babi atau sapi. Berasal dari babi = haram; tanpa keterangan = syubhat.",
+      "sources": ["LPPOM MUI — enzim", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "casein",
+      "names": ["カゼイン", "カゼインナトリウム", "casein", "sodium caseinate"],
+      "status": "syubhat",
+      "category": "dairy",
+      "reasoning": "Kasein berasal dari susu; status halal bila susu dari hewan halal dan prosesnya bebas bahan haram. Kadang diproses dengan enzim yang perlu ditelusuri.",
+      "sources": ["LPPOM MUI — turunan susu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "lecithin",
+      "names": ["レシチン", "lecithin"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Lesitin generik bisa dari kedelai (halal), kuning telur (halal), atau lemak hewani tak jelas. MUIS menandainya syubhah. Untuk lesitin kedelai spesifik lihat entri '大豆レシチン'.",
+      "sources": ["MUIS Food Additive Listing (2016)", "EFSA — E322"],
+      "eNumber": "E322"
+    },
+    {
+      "id": "soy-lecithin",
+      "names": ["大豆レシチン", "大豆レシチン（乳化剤）", "soy lecithin", "soya lecithin"],
+      "status": "halal",
+      "category": "additive",
+      "reasoning": "Lesitin kedelai berasal dari kedelai (nabati), halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "EFSA — E322"]
+    },
+    {
+      "id": "carmine",
+      "names": ["カルミン", "カルミン酸", "コチニール色素", "carmine", "cochineal"],
+      "status": "syubhat",
+      "category": "colorant",
+      "reasoning": "Karmin berasal dari serangga cochineal. Ulama berbeda pendapat: sebagian membolehkan (serangga tidak berdarah mengalir), sebagian menghindari. Bila ada alternatif lain lebih baik.",
+      "sources": ["EFSA — E120", "LPPOM MUI — pewarna"],
+      "eNumber": "E120"
+    },
+    {
+      "id": "modified-starch",
+      "names": ["加工でん粉", "化工でん粉", "加工澱粉", "modified starch"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Pati termodifikasi umumnya nabati, tetapi modifikasi dapat memakai reagen/asam lemak hewani. Sebagian besar pati bersifat halal; verifikasi bila ragu.",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "sorbitol",
+      "names": ["ソルビトール", "sorbitol"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Sorbitol umumnya dari glukosa (nabati), tetapi MUIS menandai E420 sebagai Syubhah/Doubtful karena sumber/cemaran. Ambil sikap hati-hati bila tak ada sertifikasi.",
+      "sources": ["MUIS Food Additive Listing (2016)", "EFSA — E420"],
+      "eNumber": "E420"
+    },
+    {
+      "id": "glucose",
+      "names": ["ぶどう糖", "ブドウ糖", "グルコース", "glucose"],
+      "status": "halal",
+      "category": "additive",
+      "reasoning": "Glukosa dari pati nabati (jagung/kentang) dan halal.",
+      "sources": ["LPPOM MUI — bahan nabati"]
+    },
+    {
+      "id": "sugar",
+      "names": ["砂糖", "グラニュー糖", "上白糖", "sugar"],
+      "status": "halal",
+      "category": "sweetener",
+      "reasoning": "Gula dari tebu/bit, halal. Gula tidak melalui pemurnian dengan arang tulang dalam kebanyakan produk.",
+      "sources": ["LPPOM MUI — bahan nabati"]
+    },
+    {
+      "id": "salt",
+      "names": ["食塩", "塩", "salt", "しお"],
+      "status": "halal",
+      "category": "mineral",
+      "reasoning": "Garam mineral, halal.",
+      "sources": ["LPPOM MUI — bahan mineral"]
+    },
+    {
+      "id": "honey",
+      "names": ["はちみつ", "蜂蜜", "ハチミツ", "honey"],
+      "status": "halal",
+      "category": "natural",
+      "reasoning": "Madu halal (QS 16:69).",
+      "sources": ["QS An-Nahl 16:69"]
+    },
+    {
+      "id": "vinegar",
+      "names": ["酢", "食酢", "vinegar", "お酢"],
+      "status": "halal",
+      "category": "fermented",
+      "reasoning": "Cuka dari fermentasi alkohol lalu menjadi asam asetat. Mayoritas ulama menyatakan halal karena alkohol telah terkonversi; sebagian memperdebatkan bila bercampur khamr.",
+      "sources": ["LPPOM MUI — cuka", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "yeast-extract",
+      "names": ["酵母エキス", "イーストエキス", "yeast extract"],
+      "status": "halal",
+      "category": "additive",
+      "reasoning": "Ekstrak ragi umumnya halal (ragi bukan hewan). Waspadai bila diproses dengan media mengandung alkohol.",
+      "sources": ["LPPOM MUI — bahan mikroba", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "flavoring",
+      "names": ["香料", "天然香料", "flavoring", "flavour", "調味料（アミノ酸等）"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Perisa/香料 bisa mengandung pelarut alkohol, turunan hewani, atau bahan lain. Perlu verifikasi sertifikasi halal.",
+      "sources": ["LPPOM MUI — perisa", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "l-cysteine",
+      "names": ["L-システイン", "システイン", "L-cysteine"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "L-sistein dapat diproduksi dari rambut manusia, bulu bebek, atau bahan sintetis/mikroba; bila dari babi/human = haram. Tanpa keterangan, syubhat.",
+      "sources": ["EFSA — E920", "LPPOM MUI — bahan tambahan"],
+      "eNumber": "E920"
+    },
+    {
+      "id": "transglutaminase",
+      "names": ["トランスグルタミナーゼ", "トランスグルタミナーゼ製剤", "transglutaminase"],
+      "status": "syubhat",
+      "category": "enzyme",
+      "reasoning": "Enzim pengikat ini bisa dari mikroba (halal) atau dari faktor hewani (darah/plasma). Perlu tahu sumbernya.",
+      "sources": ["LPPOM MUI — enzim", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "polysorbate",
+      "names": ["ポリソルベート", "ポリソルベート80", "polysorbate"],
+      "status": "syubhat",
+      "category": "additive",
+      "reasoning": "Polisorbat dibuat dari asam lemak yang dapat bersumber hewani (termasuk babi) atau nabati.",
+      "sources": ["EFSA — E433", "LPPOM MUI — bahan tambahan"],
+      "eNumber": "E433"
+    },
+    {
+      "id": "natural-cheese",
+      "names": ["ナチュラルチーズ", "チーズ", "cheese", "プロセスチーズ"],
+      "status": "syubhat",
+      "category": "dairy",
+      "reasoning": "Keju dapat mengandung rennet hewani (lihat rennet) sehingga perlu sertifikasi halal untuk kepastian.",
+      "sources": ["LPPOM MUI — keju", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "consomme",
+      "names": ["コンソメ", "ブイヨン", "bouillon", "consomme"],
+      "status": "syubhat",
+      "category": "seasoning",
+      "reasoning": "Kaldu bubuk bisa mengandung ekstrak daging babi/sapi/ayam tanpa kejelasan status sembelih, atau bahan beralkohol.",
+      "sources": ["LPPOM MUI — kaldu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "dashi",
+      "names": ["だし", "出汁", "だしの素", "dashi"],
+      "status": "syubhat",
+      "category": "seasoning",
+      "reasoning": "Dashi umumnya dari ikan/katsuobushi dan kombu (halal), tetapi '白だし' atau dashi bubuk bisa mengandung mirin/alkohol dan aditif hewani.",
+      "sources": ["LPPOM MUI — bumbu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "ryorishu",
+      "names": ["料理酒", "調理酒", "おりょうりしゅ", "cooking sake"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "alcohol",
+      "reasoning": "料理酒 adalah sake masak yang tetap mengandung alkohol dan garam. Banyak fatwa mengharamkan konsumsinya; perlu sertifikasi halal.",
+      "sources": ["LPPOM MUI — bahan beralkohol", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "mirin-fu",
+      "names": ["みりん風調味料", "みりん風", "みりんふうちょうみりょう"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "alcohol",
+      "reasoning": "みりん風調味料 adalah versi mirin dengan kadar alkohol rendah (<1%), tetapi statusnya tetap diperdebatkan dan perlu verifikasi.",
+      "sources": ["LPPOM MUI — bahan beralkohol", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "animal-extract",
+      "names": ["動物性エキス", "動物エキス", "どうぶつせいえきす", "animal extract"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Ekstrak hewani tanpa keterangan spesies/sembelihan (umum di produk instan Jepang). Sumber tidak dapat dipastikan, sehingga syubhat.",
+      "sources": ["LPPOM MUI — turunan hewan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "meat-extract",
+      "names": ["肉エキス", "チキンエキス", "ビーフエキス", "煮干しエキス", "魚介エキス"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Ekstrak daging/ikan tanpa kejelasan cara sembelih atau spesies. Perlu verifikasi; jika daging babi → haram.",
+      "sources": ["LPPOM MUI — turunan hewan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "cochineal-color",
+      "names": ["コチニール色素", "コチニール", "こちにーるしきそ"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "colorant",
+      "reasoning": "Pewarna merah dari serangga cochineal (E120). Ulama berbeda pendapat; sering dipakai di kamaboko dan produk merah muda Jepang.",
+      "sources": ["EFSA — E120", "LPPOM MUI — pewarna"]
+    },
+    {
+      "id": "shiro-dashi",
+      "names": ["白だし", "しろだし", "白出汁"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "seasoning",
+      "reasoning": "白だし sering mengandung mirin/alkohol dan ekstrak hewani. Perlu verifikasi sertifikasi halal.",
+      "sources": ["LPPOM MUI — bumbu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "hatsukou-choumiryou",
+      "names": ["発酵調味料", "はっこうちょうみりょう", "fermented seasoning"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "alcohol",
+      "reasoning": "発酵調味料 (bumbu fermentasi) sering berbasis beras/mirin dan mengandung alkohol. Perlu verifikasi.",
+      "sources": ["LPPOM MUI — produk fermentasi", "JAKIM MS1500:2019"]
+    }
+  ]
+}

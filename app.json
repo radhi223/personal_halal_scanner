@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Halal Scanner",
+    "slug": "halal-scanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "halalscanner",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.radhi.halalscanner"
+    },
+    "android": {
+      "package": "com.radhi.halalscanner",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-router",
+      "onnxruntime-react-native",
+      "./plugins/withOnnxruntimePackage",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Izinkan akses kamera untuk memindai label bahan makanan."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Izinkan akses galeri untuk memilih foto label bahan makanan."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
