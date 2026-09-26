@@ -25,6 +25,13 @@ import { colors } from '@/theme';
 /** Width used for the detection + full-label passes (engines resize anyway). */
 const DETECT_MAX_WIDTH = 1600;
 
+/**
+ * If the merged ingredient section is shorter than this, run the extra
+ * full-label PaddleOCR pass. ML Kit alone is ~10x faster, so we avoid it when
+ * the crop already gave us a solid list.
+ */
+const ADAPTIVE_FULL_MIN_CHARS = 180;
+
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -56,8 +63,11 @@ export default function ScanScreen() {
       }
 
       // Full-label passes start now, in parallel with crop detection.
-      const mlDetailPromise = recognizeJapaneseDetailed(workUri);
-      const ppFullPromise = recognizeJapanesePaddle(workUri);
+      const tMl = Date.now();
+      const mlDetailPromise = recognizeJapaneseDetailed(workUri).then((r) => {
+        dlog(`[${sid}] PASS ML-penuh ${Date.now() - tMl}ms`);
+        return r;
+      });
 
       let fullText = '';
       let cropped = false;
@@ -93,25 +103,42 @@ export default function ScanScreen() {
         fullText = await mlDetailPromise.then((r) => r.text ?? '').catch(() => '');
       }
 
-      const ppCropPromise = cropped
-        ? recognizeJapanesePaddle(cropUri)
-        : Promise.resolve('');
-
-      const [ppFull, ppCrop] = await Promise.allSettled([ppFullPromise, ppCropPromise]);
       const texts: { label: string; text: string }[] = [];
       if (fullText) texts.push({ label: 'ML Kit · penuh', text: fullText });
-      if (ppFull.status === 'fulfilled') texts.push({ label: 'PaddleOCR · penuh', text: ppFull.value });
-      else dlog(`[${sid}] OCR_ERR Paddle penuh: ${String(ppFull.reason)}`);
-      if (cropped && ppCrop.status === 'fulfilled') {
-        texts.push({ label: 'PaddleOCR · crop', text: ppCrop.value });
-      } else if (ppCrop.status === 'rejected') {
-        dlog(`[${sid}] OCR_ERR Paddle crop: ${String(ppCrop.reason)}`);
+
+      // PaddleOCR pass 1: the crop (highest precision on small kanji).
+      if (cropped) {
+        const tPpCrop = Date.now();
+        try {
+          const cropText = await recognizeJapanesePaddle(cropUri);
+          dlog(`[${sid}] PASS Paddle-crop ${Date.now() - tPpCrop}ms`);
+          texts.push({ label: 'PaddleOCR · crop', text: cropText });
+        } catch (err) {
+          dlog(`[${sid}] OCR_ERR Paddle crop: ${String(err)}`);
+        }
+      }
+
+      // Adaptive: ML Kit is ~10x faster than PaddleOCR, so only pay for the
+      // full-label Paddle pass when what we already have is too thin to trust.
+      const coverage = texts.reduce(
+        (n, t) => n + extractIngredientSection(t.text).length,
+        0
+      );
+      if (coverage < ADAPTIVE_FULL_MIN_CHARS) {
+        const tPpFull = Date.now();
+        try {
+          const fullPaddle = await recognizeJapanesePaddle(workUri);
+          dlog(`[${sid}] PASS Paddle-penuh ${Date.now() - tPpFull}ms (adaptive)`);
+          texts.push({ label: 'PaddleOCR · penuh', text: fullPaddle });
+        } catch (err) {
+          dlog(`[${sid}] OCR_ERR Paddle penuh: ${String(err)}`);
+        }
+      } else {
+        dlog(`[${sid}] SKIP Paddle-penuh (coverage=${coverage})`);
       }
 
       dlog(
-        `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} passes=${texts.length} chars=${texts
-          .map((t) => `${t.label.includes('crop') ? 'C' : 'F'}${t.text.length}`)
-          .join(',')}`
+        `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} passes=${texts.length} coverage=${coverage}`
       );
 
       if (!texts.some((t) => t.text)) throw new Error('Semua engine OCR gagal');

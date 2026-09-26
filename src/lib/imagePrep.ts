@@ -2,8 +2,13 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import type { CropRect } from './autoCrop';
 
-/** Upper bound for OCR input width (models resize to a fixed input regardless). */
-const MAX_OCR_WIDTH = 2000;
+/**
+ * Target width for the crop fed to OCR. PaddleOCR's preprocessing scales with
+ * input size, and its recognizer resizes to a fixed height anyway — so a
+ * 2888px crop only costs time. ~1400px keeps small kanji legible while cutting
+ * preprocessing sharply.
+ */
+const MAX_CROP_WIDTH = 1400;
 
 /**
  * Downscale the full label to a workable width before OCR. Both engines resize
@@ -42,11 +47,9 @@ export async function cropAndUpscale(
     width: rect.width,
     height: rect.height,
   });
-  // Cap the upscale: the OCR models downscale to a fixed input size anyway, so
-  // pushing past ~2000px only adds memory/time and can make text effectively
-  // smaller. Only resize when it actually increases resolution.
-  const target = Math.min(Math.round(rect.width * scale), MAX_OCR_WIDTH);
-  if (target > rect.width) {
+  // Resize to the target width — both up (small crops) and down (huge crops).
+  const target = Math.min(Math.round(rect.width * scale), MAX_CROP_WIDTH);
+  if (target !== rect.width) {
     context.resize({ width: target });
   }
   const image = await context.renderAsync();

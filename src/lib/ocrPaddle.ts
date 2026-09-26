@@ -16,7 +16,17 @@ let initPromise: Promise<void> | null = null;
 
 async function getService(): Promise<PaddleOcrService> {
   if (!service) {
-    service = new PaddleOcrService({ model: V5_MOBILE_MODEL });
+    service = new PaddleOcrService({
+      model: V5_MOBILE_MODEL,
+      session: {
+        // Hardware acceleration on Android (NPU/GPU); ONNX Runtime falls back to
+        // CPU automatically if the provider is unavailable.
+        executionProviders: ['nnapi', 'cpu'],
+        // Used when NNAPI isn't available: spread inference across big cores.
+        intraOpNumThreads: 4,
+        onSessionFallback: (err) => console.warn('[Paddle] session fallback:', String(err)),
+      },
+    });
     initPromise = service.initialize();
   }
   await initPromise;
