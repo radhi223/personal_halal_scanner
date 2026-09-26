@@ -464,5 +464,25 @@ const s13m = new Map(s13.filter((f) => f.match).map((f) => [f.normalized, f.matc
 check('黒胡 -> pepper', s13m.get(normalize('黒胡'))?.entry.id, 'rule:pepper2');
 check('ミンE -> vitamin', s13m.get(normalize('ミンE'))?.entry.id, 'rule:vitamin');
 
+// 26. Round-7: truncated/variant rule patterns + extra label noise.
+const s14 = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  'ア三、微粒二酸化イ素、酸化防、色料、即席、調味油、看料、果计'
+);
+const s14m = new Map(s14.filter((f) => f.match).map((f) => [f.normalized, f.match!]));
+check('ア三 -> amino-acid', s14m.get(normalize('ア三'))?.entry.id, 'rule:amino-acid');
+check('微粒二酸化イ素 -> silica', s14m.get(normalize('微粒二酸化イ素'))?.entry.id, 'rule:silica');
+check('酸化防 -> antioxidant', s14m.get(normalize('酸化防'))?.entry.id, 'rule:antioxidant');
+check('色料 -> coloring', s14m.get(normalize('色料'))?.entry.status, 'syubhat');
+check('即席 -> noodle', s14m.get(normalize('即席'))?.entry.id, 'rule:noodle');
+check('調味油 -> seasoning', s14m.get(normalize('調味油'))?.entry.id, 'rule:seasoning');
+check('看料 -> flavoring', s14m.get(normalize('看料'))?.entry.status, 'syubhat');
+check('果计 -> fruit-juice', s14m.get(normalize('果计'))?.entry.id, 'rule:fruit-juice');
+
+for (const noise of ['灰水化物', 'はく質', '熟量', '表示', '相当量', '品質', '材名']) {
+  check(`noise: ${noise}`, isLabelNoise(normalize(noise)), true);
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
