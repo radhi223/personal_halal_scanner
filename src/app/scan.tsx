@@ -63,45 +63,56 @@ export default function ScanScreen() {
         }
       }
 
-      // Both engines run on the prepared image. Reuse the full-label ML Kit text
-      // when we did not crop, to avoid a duplicate pass.
-      const mlPromise =
-        !cropped && fullText ? Promise.resolve(fullText) : recognizeJapanese(sourceUri);
-      const [ml, pp] = await Promise.allSettled([
-        mlPromise,
-        recognizeJapanesePaddle(sourceUri),
-      ]);
-      if (ml.status === 'rejected') dlog(`[${sid}] ML_ERR ${String(ml.reason)}`);
-      if (pp.status === 'rejected') dlog(`[${sid}] PP_ERR ${String(pp.reason)}`);
-
-      const mlText = ml.status === 'fulfilled' ? ml.value : '';
-      const ppText = pp.status === 'fulfilled' ? pp.value : '';
-      dlog(
-        `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} mlChars=${mlText.length} ppChars=${ppText.length}`
-      );
-
-      if (!mlText && !ppText) {
-        throw new Error(
-          [
-            ml.status === 'rejected' ? `ML Kit: ${ml.reason}` : '',
-            pp.status === 'rejected' ? `Paddle: ${pp.reason}` : '',
-          ]
-            .filter(Boolean)
-            .join(' | ')
-        );
+      // Hybrid: OCR the FULL label and the CROPPED region, then merge.
+      // - crop wins on small kanji
+      // - full image recovers lines the crop missed (the crop box itself is
+      //   derived from the low-quality full-image pass, so it can under-cover)
+      const passes: { label: string; promise: Promise<string> }[] = [
+        {
+          label: 'ML Kit · penuh',
+          promise: fullText ? Promise.resolve(fullText) : recognizeJapanese(imageUri),
+        },
+        { label: 'PaddleOCR · penuh', promise: recognizeJapanesePaddle(imageUri) },
+      ];
+      if (cropped) {
+        passes.push({ label: 'ML Kit · crop', promise: recognizeJapanese(sourceUri) });
+        passes.push({ label: 'PaddleOCR · crop', promise: recognizeJapanesePaddle(sourceUri) });
       }
 
-      const mlSection = extractIngredientSection(mlText || fullText);
-      const ppSection = extractIngredientSection(ppText);
-      const combined = [mlSection, ppSection].filter(Boolean).join('\n');
+      const settled = await Promise.allSettled(passes.map((p) => p.promise));
+      const texts: { label: string; text: string }[] = [];
+      settled.forEach((r, i) => {
+        if (r.status === 'fulfilled') texts.push({ label: passes[i].label, text: r.value ?? '' });
+        else dlog(`[${sid}] OCR_ERR ${passes[i].label}: ${String(r.reason)}`);
+      });
+
+      dlog(
+        `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} passes=${texts.length} chars=${texts
+          .map((t) => `${t.label.includes('crop') ? 'C' : 'F'}${t.text.length}`)
+          .join(',')}`
+      );
+
+      if (!texts.some((t) => t.text)) throw new Error('Semua engine OCR gagal');
+
+      // One section per pass, deduped (crop and full often yield the same text).
+      const seenSections = new Set<string>();
+      const sections: { label: string; section: string }[] = [];
+      for (const t of texts) {
+        const section = extractIngredientSection(t.text);
+        if (!section) continue;
+        const key = section.replace(/\s+/g, '');
+        if (seenSections.has(key)) continue;
+        seenSections.add(key);
+        sections.push({ label: t.label, section });
+      }
+
+      const combined = sections.map((s) => s.section).join('\n');
       const findings = analyzeLayered(getCuratedIndex(), getCatalogIndex(), combined);
 
       const matched = findings.filter((f) => f.match);
       const unmatched = findings.filter((f) => !f.match);
-      dblock(`[${sid}] ML_RAW`, mlText);
-      dblock(`[${sid}] PP_RAW`, ppText);
-      dblock(`[${sid}] ML_SEC`, mlSection);
-      dblock(`[${sid}] PP_SEC`, ppSection);
+      for (const t of texts) dblock(`[${sid}] RAW ${t.label}`, t.text);
+      for (const s of sections) dblock(`[${sid}] SEC ${s.label}`, s.section);
       dlog(`[${sid}] RESULT matched=${matched.length} unmatched=${unmatched.length}`);
       dlog(
         `[${sid}] HITS ${matched
@@ -111,13 +122,7 @@ export default function ScanScreen() {
       dlog(`[${sid}] MISS ${unmatched.map((f) => f.raw).join(' | ')}`);
 
       setLastScan({
-        rawText: [
-          cropped && fullText ? `[ML Kit · label penuh]\n${fullText}` : '',
-          mlText ? `[ML Kit${cropped ? ' · crop' : ''}]\n${mlText}` : '',
-          ppText ? `[PaddleOCR${cropped ? ' · crop' : ''}]\n${ppText}` : '',
-        ]
-          .filter(Boolean)
-          .join('\n\n'),
+        rawText: texts.map((t) => `[${t.label}]\n${t.text}`).join('\n\n'),
         section: combined,
         findings,
         createdAt: Date.now(),
