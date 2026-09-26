@@ -9,7 +9,7 @@ import {
   loadCurated,
   loadDatabase,
 } from '@/lib/database';
-import { computeIngredientCrop } from '@/lib/autoCrop';
+import { clampRect, computeIngredientCrop, scaleRect } from '@/lib/autoCrop';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import {
   extractCandidates,
@@ -408,6 +408,18 @@ check('かんす -> kansui', s12m.get(normalize('かんす'))?.entry.id, 'rule:k
 check('んにく -> garlic', s12m.get(normalize('んにく'))?.entry.id, 'rule:garlic');
 check('ピタ三ンB2 -> vitamin', s12m.get(normalize('ピタ三ンB2'))?.entry.id, 'rule:vitamin');
 check('noise: たんはく質', isLabelNoise(normalize('たんはく質')), true);
+
+// 23. Coordinate mapping for the downscale-then-crop flow.
+check(
+  'scaleRect maps back to original',
+  JSON.stringify(scaleRect({ originX: 10, originY: 20, width: 100, height: 50 }, 0.5)),
+  JSON.stringify({ originX: 5, originY: 10, width: 50, height: 25 })
+);
+check(
+  'clampRect keeps rect inside image',
+  JSON.stringify(clampRect({ originX: -5, originY: 10, width: 1000, height: 50 }, 100, 200)),
+  JSON.stringify({ originX: 0, originY: 10, width: 100, height: 50 })
+);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

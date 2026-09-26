@@ -29,6 +29,20 @@ export function isPaddleReady(): boolean {
 }
 
 /**
+ * Load models ahead of time (call on app start) so the first scan does not pay
+ * the initialization cost.
+ */
+export async function warmUpPaddle(): Promise<void> {
+  if (!PADDLE_OCR_ENABLED) return;
+  try {
+    await getService();
+    console.log('[Paddle] warm-up done');
+  } catch (err) {
+    console.warn('[Paddle] warm-up failed:', String(err));
+  }
+}
+
+/**
  * Kill switch. PaddleOCR/ORT caused a native force-close during scanning on a
  * real device; a native crash cannot be caught in JS, so we gate it until we
  * can read logcat and fix the root cause. ML Kit keeps working.
@@ -46,7 +60,12 @@ export async function recognizeJapanesePaddle(imageUri: string): Promise<string>
   console.log(`[Paddle] image bytes=${buffer.byteLength}`);
 
   const t1 = Date.now();
-  const result = await svc.recognize(buffer, { flatten: true, minimumConfidence: 0.4 });
+  // cross-line batches crops into uniform-width groups -> fewest inferences.
+  const result = await svc.recognize(buffer, {
+    flatten: true,
+    minimumConfidence: 0.4,
+    strategy: 'cross-line',
+  });
   const text = result.text ?? '';
   console.log(`[Paddle] recognize ${Date.now() - t1}ms chars=${text.length}`);
   console.log(`[Paddle] text=${text.slice(0, 300)}`);

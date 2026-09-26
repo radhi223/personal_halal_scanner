@@ -1,12 +1,19 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { loadCatalog, loadCurated } from '@/lib/database';
+import { warmUpPaddle } from '@/lib/ocrPaddle';
 import { colors } from '@/theme';
 
 export default function HomeScreen() {
   const curated = loadCurated();
   const catalog = loadCatalog();
+
+  // Load the PaddleOCR models in the background so the first scan is not slow.
+  useEffect(() => {
+    warmUpPaddle();
+  }, []);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

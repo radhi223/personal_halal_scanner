@@ -9,6 +9,28 @@ export interface CropRect {
   height: number;
 }
 
+/** Scale a rect measured on a downscaled image back to original coordinates. */
+export function scaleRect(rect: CropRect, factor: number): CropRect {
+  return {
+    originX: Math.round(rect.originX * factor),
+    originY: Math.round(rect.originY * factor),
+    width: Math.round(rect.width * factor),
+    height: Math.round(rect.height * factor),
+  };
+}
+
+/** Clamp a rect to the image bounds. */
+export function clampRect(rect: CropRect, imageWidth: number, imageHeight: number): CropRect {
+  const originX = Math.max(0, Math.min(rect.originX, imageWidth - 1));
+  const originY = Math.max(0, Math.min(rect.originY, imageHeight - 1));
+  return {
+    originX,
+    originY,
+    width: Math.max(1, Math.min(rect.width, imageWidth - originX)),
+    height: Math.max(1, Math.min(rect.height, imageHeight - originY)),
+  };
+}
+
 export interface CropResult {
   rect: CropRect;
   /** Diagnostics for tuning: what the header matched and what stopped the crop. */

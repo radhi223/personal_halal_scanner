@@ -11,16 +11,19 @@ import {
   View,
 } from 'react-native';
 
-import { computeIngredientCrop } from '@/lib/autoCrop';
+import { clampRect, computeIngredientCrop, scaleRect } from '@/lib/autoCrop';
 import { analyzeLayered } from '@/lib/matcher';
 import { getCatalogIndex, getCuratedIndex } from '@/lib/database';
 import { dblock, dlog, dscanId } from '@/lib/debug';
-import { cropAndUpscale } from '@/lib/imagePrep';
+import { cropAndUpscale, resizeToMaxWidth } from '@/lib/imagePrep';
 import { extractIngredientSection } from '@/lib/normalize';
-import { recognizeJapanese, recognizeJapaneseDetailed } from '@/lib/ocr';
+import { recognizeJapaneseDetailed } from '@/lib/ocr';
 import { recognizeJapanesePaddle } from '@/lib/ocrPaddle';
 import { setLastScan } from '@/lib/scanStore';
 import { colors } from '@/theme';
+
+/** Width used for the detection + full-label passes (engines resize anyway). */
+const DETECT_MAX_WIDTH = 1600;
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -33,24 +36,49 @@ export default function ScanScreen() {
     const t0 = Date.now();
     setBusy(true);
     try {
-      // Phase 1: locate the 原材料名 region from ML Kit line frames, then crop to
-      // it and upscale 2x. Attacking OCR error at the source (small text, noise)
-      // beats patching patterns after the fact.
-      let sourceUri = imageUri;
-      let cropped = false;
-      let fullText = '';
-      if (imageWidth && imageHeight) {
+      // Speed strategy (3 OCR passes instead of 5):
+      //   1. downscale the label once — engines resize internally anyway
+      //   2. start the full-label passes immediately and in parallel
+      //   3. derive the crop from the ML Kit detail pass (already running), then
+      //      run PaddleOCR on the crop only (ML Kit on the big crop was useless)
+      let workUri = imageUri;
+      let workW = imageWidth ?? 0;
+      let workH = imageHeight ?? 0;
+      if (imageWidth && imageHeight && imageWidth > DETECT_MAX_WIDTH) {
         try {
-          const detail = await recognizeJapaneseDetailed(imageUri);
+          const small = await resizeToMaxWidth(imageUri, DETECT_MAX_WIDTH);
+          workUri = small.uri;
+          workW = small.width;
+          workH = small.height;
+        } catch (err) {
+          dlog(`[${sid}] RESIZE_ERR ${String(err)}`);
+        }
+      }
+
+      // Full-label passes start now, in parallel with crop detection.
+      const mlDetailPromise = recognizeJapaneseDetailed(workUri);
+      const ppFullPromise = recognizeJapanesePaddle(workUri);
+
+      let fullText = '';
+      let cropped = false;
+      let cropUri = '';
+      if (workW && workH) {
+        try {
+          const detail = await mlDetailPromise;
           fullText = detail.text ?? '';
-          const cropResult = computeIngredientCrop(detail, imageWidth, imageHeight);
+          const cropResult = computeIngredientCrop(detail, workW, workH);
           if (cropResult) {
-            const rect = cropResult.rect;
-            const prepped = await cropAndUpscale(imageUri, rect, 2);
-            sourceUri = prepped.uri;
+            const factor = imageWidth && workW ? imageWidth / workW : 1;
+            const rect = clampRect(
+              scaleRect(cropResult.rect, factor),
+              imageWidth ?? workW,
+              imageHeight ?? workH
+            );
+            const prepped = await cropAndUpscale(imageUri, rect, 1);
+            cropUri = prepped.uri;
             cropped = true;
             dlog(
-              `[${sid}] CROP ${rect.originX},${rect.originY} ${rect.width}x${rect.height} -> ${prepped.width}x${prepped.height} lines=${cropResult.lines}`
+              `[${sid}] CROP ${rect.originX},${rect.originY} ${rect.width}x${rect.height} lines=${cropResult.lines} work=${workW}x${workH}`
             );
             dlog(
               `[${sid}] CROP_HDR "${cropResult.headerText}" STOP_AT "${cropResult.boundaryText}"`
@@ -61,30 +89,24 @@ export default function ScanScreen() {
         } catch (err) {
           dlog(`[${sid}] CROP_ERR ${String(err)}`);
         }
+      } else {
+        fullText = await mlDetailPromise.then((r) => r.text ?? '').catch(() => '');
       }
 
-      // Hybrid: OCR the FULL label and the CROPPED region, then merge.
-      // - crop wins on small kanji
-      // - full image recovers lines the crop missed (the crop box itself is
-      //   derived from the low-quality full-image pass, so it can under-cover)
-      const passes: { label: string; promise: Promise<string> }[] = [
-        {
-          label: 'ML Kit · penuh',
-          promise: fullText ? Promise.resolve(fullText) : recognizeJapanese(imageUri),
-        },
-        { label: 'PaddleOCR · penuh', promise: recognizeJapanesePaddle(imageUri) },
-      ];
-      if (cropped) {
-        passes.push({ label: 'ML Kit · crop', promise: recognizeJapanese(sourceUri) });
-        passes.push({ label: 'PaddleOCR · crop', promise: recognizeJapanesePaddle(sourceUri) });
-      }
+      const ppCropPromise = cropped
+        ? recognizeJapanesePaddle(cropUri)
+        : Promise.resolve('');
 
-      const settled = await Promise.allSettled(passes.map((p) => p.promise));
+      const [ppFull, ppCrop] = await Promise.allSettled([ppFullPromise, ppCropPromise]);
       const texts: { label: string; text: string }[] = [];
-      settled.forEach((r, i) => {
-        if (r.status === 'fulfilled') texts.push({ label: passes[i].label, text: r.value ?? '' });
-        else dlog(`[${sid}] OCR_ERR ${passes[i].label}: ${String(r.reason)}`);
-      });
+      if (fullText) texts.push({ label: 'ML Kit · penuh', text: fullText });
+      if (ppFull.status === 'fulfilled') texts.push({ label: 'PaddleOCR · penuh', text: ppFull.value });
+      else dlog(`[${sid}] OCR_ERR Paddle penuh: ${String(ppFull.reason)}`);
+      if (cropped && ppCrop.status === 'fulfilled') {
+        texts.push({ label: 'PaddleOCR · crop', text: ppCrop.value });
+      } else if (ppCrop.status === 'rejected') {
+        dlog(`[${sid}] OCR_ERR Paddle crop: ${String(ppCrop.reason)}`);
+      }
 
       dlog(
         `[${sid}] OCR ms=${Date.now() - t0} cropped=${cropped} passes=${texts.length} chars=${texts
