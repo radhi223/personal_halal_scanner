@@ -11,12 +11,40 @@ const JP_PUNCTUATION = /[・、。，．！？「」『』【】（）〔〕［�
 const WHITESPACE = /[\s\u3000]+/g;
 
 /**
+ * Simplified / variant CJK characters -> the Japanese shinjitai we store.
+ * OCR (and Chinese-influenced labels) emit these; folding them is deterministic
+ * and safe, unlike loosening fuzzy thresholds.
+ * e.g. 酸化防止剂 -> 酸化防止剤, 酱油 -> 醤油, 多糖类 -> 多糖類
+ */
+const VARIANT_FOLD: Record<string, string> = {
+  酱: '醤',
+  剂: '剤',
+  类: '類',
+  增: '増',
+  质: '質',
+  盐: '塩',
+  发: '発',
+  变: '変',
+  淀: '澱',
+  铁: '鉄',
+  银: '銀',
+  铜: '銅',
+  铅: '鉛',
+  纤: '繊',
+  蛋: '卵',
+  奶: '乳',
+};
+
+const VARIANT_RE = new RegExp(`[${Object.keys(VARIANT_FOLD).join('')}]`, 'g');
+
+/**
  * Canonical form: NFKC (full-width -> half-width, half-width katakana -> full),
- * lowercased, punctuation and whitespace stripped.
+ * variant CJK folded, lowercased, punctuation and whitespace stripped.
  */
 export function normalize(input: string): string {
   if (!input) return '';
   let s = input.normalize('NFKC');
+  s = s.replace(VARIANT_RE, (c) => VARIANT_FOLD[c]);
   s = s.toLowerCase();
   s = s.replace(WHITESPACE, '');
   s = s.replace(JP_PUNCTUATION, '');

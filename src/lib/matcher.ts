@@ -1,5 +1,6 @@
 import type { IngredientEntry, MatchResult, ScanFinding } from '@/types';
-import { levenshtein, similarity } from './levenshtein';
+import { substitutionCost } from './confusion';
+import { levenshtein, weightedSimilarity } from './levenshtein';
 import { extractCandidates, normalize } from './normalize';
 import { matchRule, ruleToMatch } from './rules';
 
@@ -70,9 +71,12 @@ export function matchNormalized(index: IngredientIndex, normalized: string): Mat
     const allowance = Math.min(queryAllowance, maxFuzzyDistance(term.length));
     // Cheap filter: if lengths differ by more than the allowance, distance can't fit.
     if (Math.abs(term.length - normalized.length) > allowance) continue;
+    // Candidate gate stays on the UNWEIGHTED distance: a token differing by more
+    // than `allowance` characters is rejected regardless of how "cheap" the
+    // swaps are. Scoring then uses the confusion-weighted similarity.
     const distance = levenshtein(normalized, term);
     if (distance > allowance) continue;
-    const score = similarity(normalized, term);
+    const score = weightedSimilarity(normalized, term, substitutionCost);
     if (score < MIN_FUZZY_SIMILARITY) continue;
     // Catalog names are unreviewed: demand a high bar so OCR gibberish
     // (e.g. "SoooN" vs "boron") cannot borrow a real ingredient's status.
@@ -119,7 +123,9 @@ function collapse(findings: ScanFinding[]): ScanFinding[] {
     if (!weak) return true;
     // Short tokens need a higher bar (五葱 vs 玉葱 differ by one char out of two).
     const threshold = f.normalized.length <= 3 ? 0.5 : 0.4;
-    return !strong.some((s) => similarity(s.normalized, f.normalized) >= threshold);
+    return !strong.some(
+      (s) => weightedSimilarity(s.normalized, f.normalized, substitutionCost) >= threshold
+    );
   });
 }
 

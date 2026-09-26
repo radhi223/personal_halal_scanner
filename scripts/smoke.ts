@@ -10,6 +10,8 @@ import {
   loadDatabase,
 } from '@/lib/database';
 import { clampRect, computeIngredientCrop, scaleRect } from '@/lib/autoCrop';
+import { FORBIDDEN_CHEAP_PAIRS, substitutionCost } from '@/lib/confusion';
+import { similarity, weightedSimilarity } from '@/lib/levenshtein';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import {
   extractCandidates,
@@ -419,6 +421,36 @@ check(
   'clampRect keeps rect inside image',
   JSON.stringify(clampRect({ originX: -5, originY: 10, width: 1000, height: 50 }, 100, 200)),
   JSON.stringify({ originX: 0, originY: 10, width: 100, height: 50 })
+);
+
+// 24. Phase 2: confusion map (variant fold + weighted edit distance).
+check('fold 剂 -> 剤', normalize('酸化防止剂'), '酸化防止剤');
+check('fold 酱 -> 醤', normalize('酱油'), '醤油');
+check('fold 类 -> 類', normalize('多糖类'), '多糖類');
+check('fold 增 -> 増', normalize('増粘剤'), '増粘剤');
+
+check('cost ズ/ス cheap', substitutionCost('ズ', 'ス') < 0.5, true);
+check('cost カ/力 cheap', substitutionCost('カ', '力') < 0.5, true);
+check('cost ミ/三 cheap', substitutionCost('ミ', '三') < 0.5, true);
+check('cost ョ/ヨ cheap', substitutionCost('ョ', 'ヨ') < 0.5, true);
+
+let forbiddenCheap = 0;
+for (const [a, b] of FORBIDDEN_CHEAP_PAIRS) {
+  if (substitutionCost(a, b) < 1) forbiddenCheap++;
+}
+check('forbidden pairs stay expensive', forbiddenCheap, 0);
+
+const wSim = weightedSimilarity('マヨネース', 'マヨネーズ', substitutionCost);
+const uSim = similarity('マヨネース', 'マヨネーズ');
+check('weighted similarity boosts kana pair', wSim > uSim, true);
+check('weighted similarity high', wSim > 0.9, true);
+
+// Variant fold reaches the matcher: 酸化防止剂 (Chinese 剂) -> 酸化防止剤 rule.
+const foldScan = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '酸化防止剂');
+check(
+  'matcher folds 剤 -> antioxidant',
+  foldScan.find((f) => f.match)?.match?.entry.id,
+  'rule:antioxidant'
 );
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

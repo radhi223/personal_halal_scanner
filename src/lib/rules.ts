@@ -470,7 +470,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('smoke', 'Smoke flavour / くん液', [/くん液/, /燻液/], 'additive', 'Cairan asap, halal.'),
   halalRule('phenylalanine', 'Phenylalanine', [/フェニルアラニン/], 'additive', 'Fenilalanin (asam amino), halal.'),
   halalRule('expanding2', 'Raising agent / 膨脹剤', [/膨脹剤/], 'additive', 'Pengembang, halal.'),
-  halalRule('salt-cn', 'Salt / 食用盐', [/食用盐/], 'mineral', 'Garam, halal.'),
+  halalRule('salt-cn', 'Salt / 食用塩', [/食用塩/, /食用盐/], 'mineral', 'Garam, halal.'),
   halalRule('sweetener2', 'Sweetener / 甘味料', [/甘味料/], 'sweetener', 'Pemanis; umumnya halal, waspadai varian.', 'low'),
   halalRule('stabilizer', 'Stabilizer / 安定剤', [/安定剤/], 'additive', 'Penstabil; umumnya nabati/mikroba.', 'low'),
   halalRule('preservative2', 'Preservative / 保存料', [/保存料/], 'additive', 'Pengawet; umumnya halal (sorbat/benzoat).', 'low'),
