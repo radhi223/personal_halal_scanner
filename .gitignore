@@ -40,6 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# local opencode rules (kept out of the public repo on purpose)
+# local opencode rules + handover (kept out of the public repo on purpose)
 .opencode/opencode.json
 LOCAL_RULES.md
+HANDOVER.md
