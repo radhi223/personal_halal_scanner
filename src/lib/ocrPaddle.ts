@@ -19,8 +19,14 @@ async function getService(): Promise<PaddleOcrService> {
     service = new PaddleOcrService({
       model: V5_MOBILE_MODEL,
       session: {
-        // Hardware acceleration on Android (NPU/GPU); ONNX Runtime falls back to
-        // CPU automatically if the provider is unavailable.
+        // Hardware acceleration on Android (GPU/NPU via NNAPI); ONNX Runtime
+        // falls back to CPU automatically if a provider is unavailable.
+        //
+        // NOTE: forcing NNAPI with `cpuDisabled: true` was tested (2026-09-26) and
+        // gave only ~3% faster inference while the recognized text looked worse
+        // (e.g. カラメル/クエン酸/微粒二酸化ケイ素 misread). Per the accuracy-first
+        // rule it was rolled back. Do not re-enable without measuring on the SAME
+        // image and proving accuracy is unchanged.
         executionProviders: ['nnapi', 'cpu'],
         // Used when NNAPI isn't available: spread inference across big cores.
         intraOpNumThreads: 4,
