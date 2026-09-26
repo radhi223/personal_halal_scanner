@@ -303,7 +303,7 @@ export const CURATION_RULES: CurationRule[] = [
   // --- frozen / atatame (ready-meal) common items ----------------------------
   halalRule('organic-acid', 'Organic acid / 有機酸', [/有機酸/], 'additive', 'Asam organik (pengatur keasaman), halal.'),
   halalRule('dietary-fiber', 'Dietary fiber / 食物繊維', [/食物繊維/, /食物線維/], 'plant', 'Serat pangan, halal.'),
-  halalRule('pepper2', 'Pepper / 胡椒', [/胡椒/, /胡線/, /胡織/], 'plant', 'Merica (nabati), halal.'),
+  halalRule('pepper2', 'Pepper / 胡椒', [/胡椒/, /胡線/, /胡織/, /黒胡/, /白胡/], 'plant', 'Merica (nabati), halal.'),
   halalRule('spice2', 'Spice / 香辛', [/香辛/, /香平料/], 'plant', 'Rempah-rempah (nabati), halal.'),
   halalRule('breadcrumbs', 'Breadcrumbs / パン粉', [/パン粉/], 'grain', 'Tepung roti, halal.'),
   halalRule('phosphate', 'Phosphate / リン酸', [/リン酸/], 'additive', 'Garam fosfat (mineral), halal.'),
@@ -323,7 +323,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('carrageenan', 'Carrageenan / カラギーナン', [/カラギーナン/], 'additive', 'Karagenan rumput laut, halal.'),
   halalRule('ph-adjuster', 'pH adjuster', [/ph調/], 'additive', 'Pengatur pH, umumnya halal.'),
   halalRule('antioxidant', 'Antioxidant / 酸化防止剤', [/酸化防止剤/, /抗氧化/], 'additive', 'Antioksidan, umumnya halal.'),
-  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /ピタ三ン/, /ピタミン/, /vc/, /ve/], 'additive', 'Vitamin, halal.'),
+  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /ピタ三ン/, /ピタミン/, /ミンe/, /vc/, /ve/], 'additive', 'Vitamin, halal.'),
   halalRule('shallot', 'Shallot / シャロット', [/シャロット/, /エシャロット/, /シヤロット/], 'plant', 'Bawang merah (nabati), halal.'),
   halalRule('star-anise', 'Star anise / スターアニス', [/スターアニス/, /スターニス/, /スター二ス/, /八角/], 'plant', 'Adas bintang (nabati), halal.'),
   halalRule('chili-powder', 'Chili powder / チリパウダー', [/チリパウダ/, /チリパウ/, /チリペッパー/], 'plant', 'Bubuk cabai (nabati), halal.'),

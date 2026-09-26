@@ -453,5 +453,16 @@ check(
   'rule:antioxidant'
 );
 
+// 25. Round-6 device regressions: more confusion pairs + variant patterns.
+check('cost 汁/计 cheap', substitutionCost('汁', '计') < 0.5, true);
+check('cost 香/看 cheap', substitutionCost('香', '看') < 0.5, true);
+
+// Rules are substring-based, so they bypass the <=2-char exact-only gate that
+// protects 豚肉/牛肉 — these truncated forms are reachable that way.
+const s13 = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '黒胡、ミンE');
+const s13m = new Map(s13.filter((f) => f.match).map((f) => [f.normalized, f.match!]));
+check('黒胡 -> pepper', s13m.get(normalize('黒胡'))?.entry.id, 'rule:pepper2');
+check('ミンE -> vitamin', s13m.get(normalize('ミンE'))?.entry.id, 'rule:vitamin');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
