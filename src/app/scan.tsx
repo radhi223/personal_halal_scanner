@@ -187,12 +187,18 @@ export default function ScanScreen() {
         raw: texts,
       });
 
+      // Informational only: a thin ingredient section usually means the photo was
+      // unclear (blur / glare / too far). Does not affect matching.
+      const lowQuality = coverage < ADAPTIVE_FULL_MIN_CHARS;
+      if (lowQuality) dlog(`[${sid}] LOW_QUALITY coverage=${coverage}`);
+
       setLastScan({
         rawText: texts.map((t) => `[${t.label}]\n${t.text}`).join('\n\n'),
         section: combined,
         findings,
         createdAt: Date.now(),
         cropped,
+        lowQuality,
       });
       router.replace('/result');
     } catch (err) {

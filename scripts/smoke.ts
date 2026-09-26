@@ -490,5 +490,13 @@ const s15m = new Map(s15.filter((f) => f.match).map((f) => [f.normalized, f.matc
 check('パ一ム油 -> palm-oil', s15m.get(normalize('パ一ム油'))?.entry.id, 'rule:palm-oil');
 check('レモグラス -> lemon', s15m.get(normalize('レモグラス'))?.entry.id, 'rule:lemon');
 
+// 28. Palm-oil with a stray character in the middle (パたーム油).
+const s16 = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'パたーム油');
+check(
+  'パたーム油 -> palm-oil',
+  s16.find((f) => f.match)?.match?.entry.id,
+  'rule:palm-oil'
+);
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

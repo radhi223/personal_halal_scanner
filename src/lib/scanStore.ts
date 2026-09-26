@@ -8,6 +8,11 @@ export interface LastScan {
   createdAt: number;
   /** True when we auto-cropped to the ingredient region and upscaled before OCR. */
   cropped?: boolean;
+  /**
+   * True when the OCR only recovered a thin ingredient list, so the result may
+   * be incomplete. Purely informational — it does not affect matching.
+   */
+  lowQuality?: boolean;
 }
 
 /**

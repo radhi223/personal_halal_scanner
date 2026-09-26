@@ -308,7 +308,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('spice2', 'Spice / 香辛', [/香辛/, /香平料/], 'plant', 'Rempah-rempah (nabati), halal.'),
   halalRule('breadcrumbs', 'Breadcrumbs / パン粉', [/パン粉/], 'grain', 'Tepung roti, halal.'),
   halalRule('phosphate', 'Phosphate / リン酸', [/リン酸/], 'additive', 'Garam fosfat (mineral), halal.'),
-  halalRule('palm-oil', 'Palm oil / パーム油', [/パーム油/, /パーム/, /パ一ム油/, /パ一ム/], 'fat', 'Minyak sawit (nabati), halal.'),
+  halalRule('palm-oil', 'Palm oil / パーム油', [/パーム油/, /パーム/, /パ一ム油/, /パ一ム/, /パ.ーム油/], 'fat', 'Minyak sawit (nabati), halal.'),
   halalRule('caramel', 'Caramel / カラメル', [/カラメル/, /ラメル/], 'colorant', 'Karamel dari gula, halal.'),
   halalRule('chili', 'Chili / 唐辛子', [/唐辛子/, /とうがらし/, /トウガラシ/], 'plant', 'Cabai (nabati), halal.'),
   halalRule('ketchup', 'Ketchup / ケチャップ', [/ケチャップ/], 'condiment', 'Saus tomat, halal.'),

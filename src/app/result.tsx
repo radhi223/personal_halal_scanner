@@ -79,6 +79,16 @@ export default function ResultScreen() {
         </Text>
       </View>
 
+      {scan.lowQuality && (
+        <View style={[styles.card, styles.warnCard]}>
+          <Text style={styles.warnTitle}>Hasil mungkin kurang akurat</Text>
+          <Text style={styles.cardBody}>
+            Teks bahan yang terbaca sedikit, kemungkinan foto kurang jelas. Coba foto
+            ulang lebih dekat, cahaya lebih terang, dan hindari kilau pada label.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.countsRow}>
         {STATUS_ORDER.map((status) => (
           <View key={status} style={styles.countCard}>
@@ -241,6 +251,15 @@ const styles = StyleSheet.create({
   unknownCard: {
     borderStyle: 'dashed',
     borderColor: colors.muted,
+  },
+  warnCard: {
+    backgroundColor: '#FFF7E8',
+    borderColor: colors.syubhat,
+  },
+  warnTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.syubhat,
   },
   unknownItem: {
     fontSize: 14,
