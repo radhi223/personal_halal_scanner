@@ -33,6 +33,9 @@ length used by the adaptive gate). Per-pass lines: `PASS ML-penuh`,
 | 11 | NNAPI diagnostic | session created, but only ~3% faster and text looked worse → **rolled back** |
 | 12 | Confusion map (Phase 2) | variant fold + weighted edit distance; 2-char tokens excluded by design |
 | 13 | Rule variants | `ア三`, `微粒二酸化`, `酸化防`, `色料`, `即席`, `調味油`, `看料`, `果计`, `パ一ム油`, `レモグラス` |
+| 14 | Persistent debug log | JSONL per scan in the app document dir + **Debug Scan** screen (share/clear); `docs/DEBUG_LOG.md` started |
+| 15 | Low-quality hint + variant | result screen warns "hasil mungkin kurang akurat" when coverage is low (informational only); palm-oil accepts a stray char (`パ.ーム油`) |
+| 16 | Photo-variance check | two scans of the same label: bad photo → 3 passes, matched 13, 7.3 s; good photo → 2 passes, matched 30, 4.4 s. **No code regression** (`git log` for OCR files empty) |
 
 ## Current baseline (device: MediaTek MT6899)
 
