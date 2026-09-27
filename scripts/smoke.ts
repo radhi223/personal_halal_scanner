@@ -740,5 +740,36 @@ for (const [raw, status] of PROTEIN34) {
   check(`[fix34] ${raw} -> ${status}`, verdict30(raw).status, status);
 }
 
+// 35. Safety round: restored wine verdicts + latent haram gaps (exact rules /
+// curated exact). Wine must stay exact so ワイン酢 (wine vinegar, halal) is not
+// caught; ラム酒 must not be a broad /ラム/ (lamb/グラム).
+const FIX35: [string, string][] = [
+  ['赤ワイン', 'haram'],
+  ['白ワイン', 'haram'],
+  ['ワイン', 'haram'],
+  ['ラム酒', 'haram'],
+  ['甘味果実酒', 'haram'],
+  ['米酒', 'haram'],
+  ['白酒', 'haram'],
+  ['豚生姜焼', 'haram'],
+  ['豚コラーゲン', 'haram'],
+  ['豚肉', 'haram'], // non-regression
+];
+for (const [raw, status] of FIX35) {
+  check(`[fix35] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+// Negative / non-regression: plant+fish extracts must never be haram.
+for (const raw of ['ワイン酢', 'ぶどう', 'ぶどう酢', '麦芽エキス', '昆布エキス']) {
+  check(`[fix35] ${raw} NOT haram`, notHaram(raw), true);
+}
+check('[fix35] 赤ワイン curated wine id', verdict30('赤ワイン').id, 'wine');
+check('[fix35] ワイン still curated wine id', verdict30('ワイン').id, 'wine');
+check('[fix35] 豚コラーゲン curated pork id', verdict30('豚コラーゲン').id, 'pork');
+check('[fix35] ラム酒 rule id', verdict30('ラム酒').id, 'rule:rum');
+check('[fix35] 甘味果実酒 rule id', verdict30('甘味果実酒').id, 'rule:sweet-fruit-wine');
+check('[fix35] 米酒 rule id', verdict30('米酒').id, 'rule:rice-wine');
+check('[fix35] 白酒 rule id', verdict30('白酒').id, 'rule:baijiu');
+check('[fix35] 豚生姜焼 rule id', verdict30('豚生姜焼').id, 'rule:pork');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

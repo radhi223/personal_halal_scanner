@@ -63,6 +63,50 @@ export const CURATION_RULES: CurationRule[] = [
     sources: ["QS Al-Maa'idah 5:90", LPPOM],
   },
   {
+    id: 'rum',
+    label: 'Rum / ラム酒',
+    status: 'haram',
+    confidence: 'high',
+    category: 'alcohol',
+    // NB: never bare /ラム/ — it matches グラム (gram) and ラム肉 (lamb, syubhat).
+    patterns: [/ラム酒/],
+    reasoning: 'ラム酒 (rum) adalah minuman beralkohol (khamr) hasil sulingan, haram.',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
+    id: 'sweet-fruit-wine',
+    label: 'Sweet fruit wine / 甘味果実酒',
+    status: 'haram',
+    confidence: 'high',
+    category: 'alcohol',
+    // Must precede the generic halal /果実/ (fruit) rule.
+    patterns: [/甘味果実酒/],
+    reasoning: '甘味果実酒 (sweet fruit wine) berbasis fermentasi buah/anggur, termasuk khamr, haram.',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
+    id: 'rice-wine',
+    label: 'Rice wine / 米酒',
+    status: 'haram',
+    confidence: 'high',
+    category: 'alcohol',
+    // Must precede the generic rice rule (which stays anchored to ^米$ anyway).
+    patterns: [/米酒/],
+    reasoning: '米酒 (rice wine) adalah minuman beralkohol hasil fermentasi beras, haram.',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
+    id: 'baijiu',
+    label: 'Baijiu / 白酒',
+    status: 'haram',
+    confidence: 'high',
+    category: 'alcohol',
+    patterns: [/白酒/],
+    reasoning:
+      '白酒 (baijiu, atau shiroki sake manis Jepang) adalah minuman beralkohol hasil fermentasi/sulingan, haram. Tidak menabrak makanan non-alkohol (audit: satu-satunya kemunculan korpus berkonteks bumbu Tionghoa; tak ada entri curated/katalog non-alkohol yang memuat 白酒).',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
     id: 'pork',
     label: 'Pork / 豚肉',
     status: 'haram',
@@ -70,7 +114,7 @@ export const CURATION_RULES: CurationRule[] = [
     category: 'animal',
     patterns: [
       /豚肉/, /ぶたにく/, /ポーク/, /ラード/, /豚脂/, /豚エキス/, /豚肉エキス/, /豚骨/, /豚ガラ/,
-      /豚ばら/, /豚バラ/, /豚ロース/, /豚ヒレ/,
+      /豚ばら/, /豚バラ/, /豚ロース/, /豚ヒレ/, /豚生姜/,
     ],
     reasoning: 'Berasal dari babi (daging/lemak/ekstrak). Haram secara eksplisit.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],

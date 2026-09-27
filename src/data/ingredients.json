@@ -4,7 +4,7 @@
   "entries": [
     {
       "id": "pork",
-      "names": ["豚肉", "ぶたにく", "ポーク", "pork", "豚", "ぶた"],
+      "names": ["豚肉", "ぶたにく", "ポーク", "pork", "豚", "ぶた", "豚コラーゲン"],
       "status": "haram",
       "category": "animal",
       "reasoning": "Daging babi hukumnya haram secara eksplisit dalam Al-Qur'an (QS 2:173, 5:3, 6:145, 16:115), tanpa perbedaan pendapat ulama.",
@@ -69,7 +69,7 @@
     },
     {
       "id": "wine",
-      "names": ["ワイン", "ぶどう酒", "葡萄酒", "wine"],
+      "names": ["ワイン", "ぶどう酒", "葡萄酒", "wine", "赤ワイン", "白ワイン", "ロゼワイン", "ローズワイン", "ワイン類"],
       "status": "haram",
       "category": "alcohol",
       "reasoning": "Anggur/memabukkan termasuk khamr, haram.",
