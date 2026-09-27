@@ -1,3 +1,4 @@
+import type { VerdictTone } from '@/lib/verdict';
 import type { HalalStatus } from '@/types';
 
 export const colors = {
@@ -25,6 +26,14 @@ export const statusColor: Record<HalalStatus, string> = {
   haram: colors.haram,
   syubhat: colors.syubhat,
   unknown: colors.unknown,
+};
+
+/** Banner background per verdict tone: danger/caution/unknown/ok. */
+export const verdictToneColor: Record<VerdictTone, string> = {
+  danger: colors.haram,
+  caution: colors.syubhat,
+  unknown: colors.muted,
+  ok: colors.halal,
 };
 
 export const statusRank: Record<HalalStatus, number> = {

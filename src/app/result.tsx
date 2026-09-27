@@ -4,7 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { appendFeedbackRecord } from '@/lib/debugFile';
 import { getLastScan } from '@/lib/scanStore';
-import { colors, statusColor, statusLabel, statusRank } from '@/theme';
+import { computeVerdictBanner } from '@/lib/verdict';
+import { colors, statusColor, statusLabel, statusRank, verdictToneColor } from '@/theme';
 import type { HalalStatus, IngredientEntry, ScanFinding } from '@/types';
 
 const STATUS_ORDER: HalalStatus[] = ['haram', 'syubhat', 'unknown', 'halal'];
@@ -53,6 +54,19 @@ export default function ResultScreen() {
     [scan]
   );
 
+  const verdict = useMemo(
+    () =>
+      computeVerdictBanner({
+        haram: counts.haram,
+        syubhat: counts.syubhat,
+        halal: counts.halal,
+        unknown: counts.unknown,
+        matched: matched.length,
+        lowQuality: scan?.lowQuality === true,
+      }),
+    [counts, matched.length, scan?.lowQuality]
+  );
+
   if (!scan) {
     return (
       <View style={styles.empty}>
@@ -64,20 +78,11 @@ export default function ResultScreen() {
     );
   }
 
-  const hasWarning = counts.haram > 0 || counts.syubhat > 0;
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={[styles.banner, { backgroundColor: hasWarning ? colors.haram : colors.halal }]}>
-        <Text style={styles.bannerText}>
-          {hasWarning
-            ? 'Ada bahan yang perlu diperhatikan'
-            : 'Tidak ditemukan bahan bermasalah'}
-        </Text>
-        <Text style={styles.bannerSub}>
-          {matched.length} bahan cocok • {counts.haram} haram • {counts.syubhat} syubhat •{' '}
-          {counts.unknown} belum ditinjau
-        </Text>
+      <View style={[styles.banner, { backgroundColor: verdictToneColor[verdict.tone] }]}>
+        <Text style={styles.bannerText}>{verdict.title}</Text>
+        <Text style={styles.bannerSub}>{verdict.detail}</Text>
       </View>
 
       {scan.lowQuality && (

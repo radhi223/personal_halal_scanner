@@ -523,6 +523,7 @@ export const CURATION_RULES: CurationRule[] = [
       /はっ酵調味料/,
       /米発酵/,
       /発酵風味料/,
+      /発風味料/,
       /香味調味料/,
       /風味調味料/,
       /液体調味料/,
@@ -536,7 +537,9 @@ export const CURATION_RULES: CurationRule[] = [
 
   // --- frozen / atatame (ready-meal) common items ----------------------------
   halalRule('organic-acid', 'Organic acid / 有機酸', [/有機酸/], 'additive', 'Asam organik (pengatur keasaman), halal.'),
-  halalRule('dietary-fiber', 'Dietary fiber / 食物繊維', [/食物繊維/, /食物線維/], 'plant', 'Serat pangan, halal.'),
+  // /食物繊/ catches the OCR-truncated prefix of 食物繊維 (seen as 食物繊 on a
+  // real label); it cannot match anything else.
+  halalRule('dietary-fiber', 'Dietary fiber / 食物繊維', [/食物繊維/, /食物線維/, /食物繊/], 'plant', 'Serat pangan, halal.'),
   halalRule('pepper2', 'Pepper / 胡椒', [/胡椒/, /胡線/, /胡織/, /黒胡/, /白胡/, /ブラックペッパー/, /ホワイトペッパー/], 'plant', 'Merica (nabati), halal.'),
   halalRule('spice2', 'Spice / 香辛', [/香辛/, /香平料/], 'plant', 'Rempah-rempah (nabati), halal.'),
   halalRule('breadcrumbs', 'Breadcrumbs / パン粉', [/パン粉/], 'grain', 'Tepung roti, halal.'),
@@ -549,7 +552,12 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('chili', 'Chili / 唐辛子', [/唐辛子/, /とうがらし/, /トウガラシ/], 'plant', 'Cabai (nabati), halal.'),
   halalRule('ketchup', 'Ketchup / ケチャップ', [/ケチャップ/], 'condiment', 'Saus tomat, halal.'),
   halalRule('pickles', 'Pickles / ピクルス', [/ピクルス/], 'plant', 'Acar sayur, halal.'),
-  halalRule('dextrin', 'Dextrin / デキストリン', [/デキストリン/], 'additive', 'Dekstrin dari pati, halal.'),
+  // OCR-split fragments of デキストリン / 難消化性デキストリン ("デキス トリン",
+  // "難消化性 ストリン"). The fragments are ANCHORED on purpose: an unanchored
+  // /トリン/ also matched OCR soup like "脱 脂粉乳デストリンク リー" and granted
+  // it halal. Before this, the bare fragment トリン fuzzy-matched ミリン (mirin)
+  // and reported a false syubhat on a halal starch-derived additive.
+  halalRule('dextrin', 'Dextrin / デキストリン', [/デキストリン/, /^トリン$/, /^ストリン$/, /^難消化性$/], 'additive', 'Dekstrin dari pati, halal.'),
   halalRule('liquid-sugar', 'Liquid sugar / 液糖', [/液糖/, /果糖/, /ぶどう糖液糖/, /糖漿/, /糖浆/, /果葡糖/], 'sweetener', 'Gula cair / glukosa-fruktosa (HFCS), halal.'),
   halalRule('sugar-variant', 'Sugar / 砂糖', [/沙糖/], 'sweetener', 'Gula (nabati), halal. Varian OCR 沙糖.'),
   halalRule('miso', 'Miso / 味噌', [/味噌/, /みそ/], 'fermented', 'Miso fermentasi kedelai; umumnya halal, waspadai residu alkohol.', 'low'),
@@ -585,7 +593,11 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('citric', 'Citric acid / クエン酸', [/クエン酸/, /クエン/, /柠檬酸/, /エン酸/], 'additive', 'Asam sitrat, halal.'),
   halalRule('lactic-acid', 'Lactic acid / 乳酸', [/乳酸/], 'additive', 'Asam laktat (fermentasi), halal.'),
   halalRule('malic', 'Malic acid / リンゴ酸', [/リンゴ酸/, /りんご酸/], 'additive', 'Asam malat, halal.'),
-  halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/, /ア三/, /グルタミン酸/, /味精/], 'additive', 'Asam amino penyedap, halal. 味精 = MSG. グルタミン酸 = glutamate.'),
+  // OCR truncations of アミノ酸 (leading ア lost: ミノ酸等; ミ misread as 三:
+  // 三ノ酸等/三酸等) are common on real labels. These fragments occur only in
+  // the amino-acid seasoning family (MSG etc.), which is halal — same class as
+  // the existing /ア三/ pattern.
+  halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/, /ア三/, /ミノ酸/, /三ノ酸/, /三酸/, /グルタミン酸/, /味精/], 'additive', 'Asam amino penyedap, halal. 味精 = MSG. グルタミン酸 = glutamate.'),
   halalRule('succinate', 'Succinate / コハク酸', [/コハク酸/, /八ク酸/], 'additive', 'Garam asam suksinat, halal.'),
   halalRule('nucleic', 'Nucleic acid / 核酸', [/核酸/], 'additive', 'Asam nukleat penyedap, halal.'),
   {
@@ -644,7 +656,10 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'low',
     category: 'condiment',
-    patterns: [/ソース/],
+    // /ウスタ/ catches ウスターソース when the long vowel is OCR-misread as the
+    // kanji 一 (ウスタ一ース), the same variant family as コーヒ一/パ一ム油.
+    // Still syubhat (low): no false halal.
+    patterns: [/ソース/, /ウスタ/],
     reasoning: 'Saus (mis. Worcestershire/中濃) bisa mengandung alkohol, ekstrak hewani, atau ikan. Perlu verifikasi.',
     sources: [LPPOM, JAKIM],
   },
@@ -699,7 +714,11 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('acetic-acid', 'Acetic acid / 酢酸', [/酢酸/], 'additive', 'Asam asetat, halal.'),
   halalRule('kcl', 'Potassium chloride / 塩化K', [/塩化k/, /塩化カリウム/], 'additive', 'Kalium klorida (mineral), halal.'),
   halalRule('carotenoid', 'Carotenoid / カロテノイド', [/カロチン/, /カロテン/, /カロテノイド/, /カロチノイド/], 'colorant', 'Karotenoid (nabati), halal.'),
-  halalRule('potassium-sorbate', 'Potassium sorbate / ソルビン酸K', [/ソルビン酸k/, /ソルビン酸カリウム/], 'additive', 'Kalium sorbat, halal.'),
+  // Bare /ソルビン酸/ added after the real-image run: ソルビン酸 (sorbic acid,
+  // E200) and all its salts are halal synthetic preservatives, but only the K
+  // salt was covered, so the bare token fuzzy-matched カルミン酸 (carmine,
+  // syubhat) and reported a false syubhat on a halal preservative.
+  halalRule('potassium-sorbate', 'Potassium sorbate / ソルビン酸K', [/ソルビン酸/, /ソルビン酸カリウム/], 'additive', 'Asam sorbat dan garamnya, halal.'),
   halalRule('annatto', 'Annatto / アナトー', [/アナトー/], 'colorant', 'Annatto (nabati), halal.'),
   halalRule('red-koji', 'Red koji / 紅麹', [/紅麹/, /ベニコウジ/], 'additive', 'Koji merah (fermentasi), halal.'),
   halalRule('matcha', 'Matcha / 抹茶', [/抹茶/], 'plant', 'Matcha (teh), halal.'),

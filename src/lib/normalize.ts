@@ -150,6 +150,20 @@ const NOISE_EXACT = new Set(
     'ロシア', 'モロッコ', 'ケニア', 'フィリピン', 'マダガスカル', 'コスタリカ',
     'エクアドル', 'ウルグアイ', 'ボリビア', 'キューバ', 'ジャマイカ',
     '食品添加剤', '食品添加剂',
+    // Ordinary Japanese words and government-guide/legal boilerplate that the
+    // first real-image baseline (docs/VALIDATION_BASELINE.md) showed leaking
+    // into findings, including FALSE VERDICTS from fuzzy matching: ただし ≈
+    // 白だし, 加工所 ≈ 加工酢, 薬ラベル ≈ ミラベル. Kept EXACT (not NOISE_RE)
+    // on purpose: several are common substrings of real ingredients
+    // (保存 ⊂ 保存料, 由来 ⊂ 乳由来/大豆由来) so a substring pattern would
+    // drop genuine tokens; the whole normalized token must equal the word.
+    // Verified against curated names + rules: no curated name equals any of
+    // these; the only substring hits are 保存 (保存料) and 由来 (乳化剤（大豆
+    // 由来）, 米由来マグネシウム), which exact-only matching cannot swallow.
+    'ただし', 'なお', 'また', '上記', '別表', '個別的', '定義', '方式', '規制',
+    '事項', '止事項', '様式', '樣式', 'ポイント', '留意点', '該当', '加工所',
+    '薬ラベル', '加工食品', '保存', '由来', '開封後', '記載', '表示', '別紙',
+    '参考', '例示', '抜粋', '出典', '目次',
   ]
 );
 

@@ -65,6 +65,23 @@ export function matchNormalized(index: IngredientIndex, normalized: string): Mat
     return { entry: exact, matchedTerm: normalized, score: 1, kind: 'exact' };
   }
 
+  // Short/non-food fuzzy guard. Exact matches return above and are NEVER gated.
+  // Rationale: on ordinary words and brand fragments one edit is meaningless
+  // evidence of food identity, and the first real-image baseline caught exactly
+  // that (ただし ≈ 白だし, 加工所 ≈ 加工酢, Asahi ≈ dashi asahi/asahi→dashi is
+  // edit distance 2). So refuse approximate matches when:
+  //  - the normalized query is shorter than 3 characters (too little signal),
+  //  - OR it is an ASCII-only fragment of 5 characters or fewer. Latin
+  //    brand/product words are the main source of such false hits; the brief
+  //    suggested "< 5", but the observed false verdict Asahi normalizes to
+  //    'asahi' (5 chars) and sits at edit distance 2 from the curated Latin name
+  //    'dashi', so the cutoff is inclusive to actually block it. Real ASCII
+  //    ingredient names/codes still work: they match EXACTLY (E120, wine, …).
+  // Japanese ingredient terms are unaffected (all high-stakes ones are exact or
+  // ≥3 chars, e.g. ミノ酸 is caught by the rule layer, not this loop).
+  if (normalized.length < 3) return null;
+  if (/^[\x20-\x7e]{1,5}$/.test(normalized)) return null;
+
   const queryAllowance = maxFuzzyDistance(normalized.length);
   if (queryAllowance === 0) return null;
 

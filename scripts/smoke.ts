@@ -14,6 +14,7 @@ import { FORBIDDEN_CHEAP_PAIRS, substitutionCost } from '@/lib/confusion';
 import { similarity, weightedSimilarity } from '@/lib/levenshtein';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import { CURATION_RULES, matchRule } from '@/lib/rules';
+import { computeVerdictBanner } from '@/lib/verdict';
 import {
   extractCandidates,
   extractIngredientSection,
@@ -1077,6 +1078,163 @@ check('[fix40] ビート -> halal (non-reg)', verdict30('ビート').status, 'ha
 check('[fix40] non-reg: 植物油脂 -> halal', verdict30('植物油脂').status, 'halal');
 check('[fix40] non-reg: 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
 check('[fix40] non-reg: 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
+
+// 41. Verdict banner decision table (trust-critical): the green "safe" banner
+// must only appear when every matched ingredient has a reviewed verdict. Zero
+// matches, low-quality OCR, and unreviewed-only matches are never "safe".
+const banner = (
+  haram: number,
+  syubhat: number,
+  halal: number,
+  unknown: number,
+  matched: number,
+  lowQuality = false
+) => computeVerdictBanner({ haram, syubhat, halal, unknown, matched, lowQuality });
+
+const bannerCases: [string, ReturnType<typeof banner>, string, string][] = [
+  ['haram present -> danger', banner(1, 0, 2, 0, 3), 'danger', 'Ditemukan bahan haram'],
+  ['haram+syubhat -> danger (haram wins)', banner(1, 2, 0, 0, 3), 'danger', 'Ditemukan bahan haram'],
+  ['syubhat only -> caution', banner(0, 1, 2, 0, 3), 'caution', 'Ada bahan yang perlu diperhatikan'],
+  ['matched=0 -> unknown, no safety claim', banner(0, 0, 0, 0, 0), 'unknown', 'Tidak ada bahan yang dikenali'],
+  ['matched=0 + lowQuality -> unknown', banner(0, 0, 0, 0, 0, true), 'unknown', 'Tidak ada bahan yang dikenali'],
+  ['lowQuality, reviewed matches -> unknown', banner(0, 0, 2, 0, 2, true), 'unknown', 'Hasil mungkin kurang akurat'],
+  ['unknown-only -> unknown', banner(0, 0, 0, 2, 2), 'unknown', 'Hanya bahan yang belum ditinjau'],
+  ['unknown+halal -> caution', banner(0, 0, 1, 1, 2), 'caution', 'Sebagian bahan belum ditinjau'],
+  ['all reviewed -> ok', banner(0, 0, 3, 0, 3), 'ok', 'Semua bahan yang dikenali sudah ditinjau'],
+  ['haram+lowQuality -> danger (precedence)', banner(1, 0, 0, 0, 1, true), 'danger', 'Ditemukan bahan haram'],
+];
+
+for (const [label, v, tone, title] of bannerCases) {
+  check(`[verdict] ${label}: tone`, v.tone, tone);
+  check(`[verdict] ${label}: title`, v.title, title);
+}
+
+check(
+  '[verdict] matched=0 never claims safety',
+  banner(0, 0, 0, 0, 0).title.includes('Tidak ditemukan bahan bermasalah'),
+  false
+);
+check(
+  '[verdict] matched=0 detail carries count',
+  banner(0, 0, 0, 0, 0).detail.includes('0 bahan cocok'),
+  true
+);
+check(
+  '[verdict] danger detail carries counts',
+  banner(2, 1, 0, 0, 3).detail,
+  '2 haram • 1 syubhat • 3 bahan cocok'
+);
+check(
+  '[verdict] unknown-only detail carries counts',
+  banner(0, 0, 0, 2, 2).detail,
+  '2 dari 2 bahan belum ditinjau • belum ada penilaian'
+);
+check(
+  '[verdict] ok detail carries counts',
+  banner(0, 0, 3, 0, 3).detail,
+  '3 bahan cocok • 3 halal • tidak ada temuan'
+);
+
+// 41. Real-image validation baseline fixes (110-label corpus). These are the
+// DATA/RULE gaps the first real-photo run exposed, plus the two false syubhat
+// verdicts caused by OCR fragments fuzzy-matching the wrong curated entry
+// (ソルビン酸 -> carmine, トリン -> mirin).
+const FIX41: [string, string][] = [
+  ['ミノ酸等', 'halal'], // アミノ酸等 with the leading ア lost
+  ['三ノ酸等', 'halal'], // ミ misread as 三
+  ['三酸等', 'halal'],
+  ['ミノ酸', 'halal'],
+  ['ソルビン酸', 'halal'], // sorbic acid (E200), all salts
+  ['ソルビン酸K', 'halal'],
+  ['トリン', 'halal'], // dextrin fragment
+  ['ストリン', 'halal'], // 難消化性 ストリン fragment
+  ['難消化性', 'halal'],
+  ['難消化性デキストリン', 'halal'],
+  ['食物繊', 'halal'], // 食物繊維 truncated
+  ['ウスタ一ース', 'syubhat'], // ウスターソース with 一 for ー
+  ['ウスターソース', 'syubhat'],
+  ['発風味料', 'syubhat'], // 発酵風味料 truncated
+  ['発酵風味料', 'syubhat'],
+  ['ビ一チ', 'halal'], // ビート OCR alias
+  ['ビ一ト', 'halal'],
+];
+for (const [raw, status] of FIX41) {
+  check(`[fix41] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[fix41] ミノ酸等 rule id', verdict30('ミノ酸等').id, 'rule:amino-acid');
+check('[fix41] ソルビン酸 rule id', verdict30('ソルビン酸').id, 'rule:potassium-sorbate');
+check('[fix41] ソルビン酸 NOT carmine (false syubhat fixed)', verdict30('ソルビン酸').id !== 'carmine', true);
+check('[fix41] トリン rule id', verdict30('トリン').id, 'rule:dextrin');
+check('[fix41] トリン NOT mirin (false syubhat fixed)', verdict30('トリン').id !== 'mirin', true);
+check('[fix41] 食物繊 rule id', verdict30('食物繊').id, 'rule:dietary-fiber');
+check('[fix41] ウスタ一ース rule id', verdict30('ウスタ一ース').id, 'rule:sauce');
+check('[fix41] 発風味料 rule id', verdict30('発風味料').id, 'rule:fermented-seasoning');
+check('[fix41] ビ一チ curated beet id', verdict30('ビ一チ').id, 'exp:ビート');
+// The dextrin fragments are anchored: OCR soup that merely CONTAINS トリン must
+// not inherit a halal verdict. (脱脂粉乳デストリンクリー is halal for a
+// legitimate reason — 脱脂粉乳 — so the guard token is pure garbage.)
+check('[fix41] クリンゲルトリン NOT halal (anchored fragment)', verdict30('クリンゲルトリン').status !== 'halal', true);
+// The old false-verdict sources stay exactly as before.
+check('[fix41] カルミン酸 still syubhat', verdict30('カルミン酸').status, 'syubhat');
+check('[fix41] ミリン still syubhat', verdict30('ミリン').status, 'syubhat');
+// /三酸/ must not shadow the earlier phosphate/citric rules.
+check('[fix41] リン酸三ナトリウム still phosphate', verdict30('リン酸三ナトリウム').id, 'rule:phosphate');
+check('[fix41] クエン酸三ナトリウム still citric', verdict30('クエン酸三ナトリウム').id, 'rule:citric');
+// Non-regressions.
+check('[fix41] デキストリン still halal', verdict30('デキストリン').status, 'halal');
+check('[fix41] 食物繊維 still halal', verdict30('食物繊維').status, 'halal');
+check('[fix41] 発酵調味料 still syubhat', verdict30('発酵調味料').status, 'syubhat');
+check('[fix41] ビート still halal', verdict30('ビート').status, 'halal');
+check('[fix41] アミノ酸 still halal', verdict30('アミノ酸').status, 'halal');
+check('[fix41] non-reg: 植物油脂 -> halal', verdict30('植物油脂').status, 'halal');
+check('[fix41] non-reg: 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+check('[fix41] non-reg: E120 -> syubhat', verdict30('E120').status, 'syubhat');
+check('[fix41] non-reg: 乳化剤 -> syubhat', verdict30('乳化剤').status, 'syubhat');
+check('[fix41] non-reg: レシチン -> syubhat', verdict30('レシチン').status, 'syubhat');
+
+// 42. First real-image validation fixes (docs/VALIDATION_BASELINE.md). Ordinary
+// Japanese words / guide prose are now EXACT-only label noise, and the matcher
+// refuses fuzzy matches on short or ASCII brand fragments. These tokens used to
+// get FALSE VERDICTS: ただし → syubhat 白だし (5 CAA pages), 加工所 → syubhat
+// 加工酢, 薬ラベル → halal ミラベル, Asahi → syubhat dashi.
+const noVerdict42 = (raw: string) =>
+  !analyzeLayered(getCuratedIndex(), getCatalogIndex(), raw).some((f) => f.match);
+
+for (const raw of ['ただし', '加工所', '薬ラベル', 'Asahi']) {
+  check(`[fix42] ${raw} produces NO verdict`, noVerdict42(raw), true);
+}
+check('[fix42] ただし dropped as label noise', isLabelNoise(normalize('ただし')), true);
+check('[fix42] 加工所 dropped as label noise', isLabelNoise(normalize('加工所')), true);
+check('[fix42] 薬ラベル dropped as label noise', isLabelNoise(normalize('薬ラベル')), true);
+
+// Every word added to NOISE_EXACT must classify as label noise.
+for (const noise of [
+  'ただし', 'なお', 'また', '上記', '別表', '個別的', '定義', '方式', '規制',
+  '事項', '止事項', '様式', '樣式', 'ポイント', '留意点', '該当', '加工所',
+  '薬ラベル', '加工食品', '保存', '由来', '開封後', '記載', '表示', '別紙',
+  '参考', '例示', '抜粋', '出典', '目次',
+]) {
+  check(`[fix42] noise: ${noise}`, isLabelNoise(normalize(noise)), true);
+}
+// Exact-only must NOT swallow real ingredients that merely CONTAIN a word.
+for (const keep of ['保存料', '白だし', '加工酢', 'ミラベル', '油脂加工食品']) {
+  check(`[fix42] not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
+}
+
+// The genuine food tokens keep their verdicts.
+check('[fix42] 白だし still syubhat', verdict30('白だし').status, 'syubhat');
+check('[fix42] 白だし rule id', verdict30('白だし').id, 'shiro-dashi');
+check('[fix42] 加工酢 still syubhat', verdict30('加工酢').status, 'syubhat');
+// ミラベル is a real curated ingredient (Mirabelle plum, halal EXACT). The fix
+// only forbids a FUZZY halal verdict — the 薬ラベル ≈ ミラベル path is gone.
+check('[fix42] ミラベル no fuzzy verdict', matchTerm(getCuratedIndex(), 'ミラベル')?.kind === 'fuzzy', false);
+
+// Non-regressions for the high-stakes set.
+check('[fix42] 乳化剤 -> syubhat', verdict30('乳化剤').status, 'syubhat');
+check('[fix42] 小麦粉 -> halal', verdict30('小麦粉').status, 'halal');
+check('[fix42] 豚肉 -> haram', verdict30('豚肉').status, 'haram');
+check('[fix42] アミノ酸等 -> halal', verdict30('アミノ酸等').status, 'halal');
+check('[fix42] ミノ酸等 -> halal', verdict30('ミノ酸等').status, 'halal');
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
