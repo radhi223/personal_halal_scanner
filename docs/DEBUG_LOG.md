@@ -38,6 +38,44 @@ length used by the adaptive gate). Per-pass lines: `PASS ML-penuh`,
 | 16 | Photo-variance check | two scans of the same label: bad photo → 3 passes, matched 13, 7.3 s; good photo → 2 passes, matched 30, 4.4 s. **No code regression** (`git log` for OCR files empty) |
 | 17 | Feedback loop | "Tandai salah" button per finding writes `{type:'feedback', sid, raw, entryId, status}` into the same JSONL log — real-usage signal for the curation backlog |
 
+## Autonomous subagent iteration (rounds 2–10)
+
+Driven by subagents with an independent verifier each round (multi cross-check).
+Corpus: OFF-JP top-800 tokens (43,037 occurrences) + per-category buckets.
+
+| Round | Work | Verified finding | Result |
+|---|---|---|---|
+| 2 | noise filter + fresh-food rules; eval harness built | verifier: "139 unknown" was wrong (135) | covered 85.5% → 85.6% |
+| 3 | safety-critical (charshu/ham/spirits/animal fat) | collision audit: `/油脂/` order fragility | covered 86.2%, unknown 119 → 91 |
+| 4 | anchored `/油脂/`, CN cluster | verifier: 動植物油脂→halal, 蛋白加水分解物→halal, デヒドロ酢酸→halal, ハム in dressing→halal | unknown 91 → 90 |
+| 5 | fixed those 7 bugs | verifier: new regressions (ハムスライス→halal, 動植物蛋白→halal, グラハム→haram, グルタミン酸→carmine) | unknown 90 → 89 |
+| 6 | fixed those 7 | verifier: **plant/fish extracts labelled haram** (麦芽エキス etc. fuzzy→豚肉エキス) | unknown 89 → 90 |
+| 7 | **safety invariant: fuzzy never yields haram** | verifier: only 赤ワイン legitimately lost | unknown 90 |
+| 8 | wine restore + rum/米酒/白酒/豚コラーゲン | final audit: 果実酒→halal, セパージュワイン→halal, ビール→syubhat via ビーフ | unknown 90 → 88 |
+| 9 | **precedence: exact-curated > rules > fuzzy-curated > catalog**; alcohol rules; vegan guard | verifier: カクテルソース→haram, fermented seasonings lost caution | unknown 88 → 86 |
+| 10 | cocktail lookahead; fermented-seasoning syubhat; 蒸し鶏/食肉/チーズパウダー | — | **covered 86.4%, unknown 1.4% (82)** |
+
+### Invariants now enforced (do not regress)
+
+1. **Fuzzy matching may never produce a `haram` verdict** — haram requires an
+   exact match (`src/lib/matcher.ts`). Fixed 15 mislabelled plant/fish extracts.
+2. **Precedence: exact-curated > rules > fuzzy-curated > catalog** — an
+   approximate curated hit must not shadow an explicit keyword rule.
+3. **The OFF `vegan=yes` origin-signal must not grant halal to an
+   alcoholic-looking name** (`looksAlcoholic()` in `src/lib/database.ts`).
+
+### Final metrics after round 10
+
+| Metric | Value |
+|---|---|
+| Weighted coverage (top-800) | **86.4%** |
+| Noise | 12.1% |
+| Unknown | **1.4% (82 tokens)** |
+| Eval recall (clean / 15% / 30% OCR error) | 97.9 / 89.2 / 80.5 |
+| High-stakes assertions | 19/19 (harness), 25/25 (independent) |
+| Smoke tests | 37 groups, ALL PASS |
+| Haram set | 37 corpus tokens, all explicit (exact or rule), 0 from fuzzy |
+
 ## Representativeness caveat (open)
 
 The 85.5% weighted coverage comes from **token frequency in the Open Food Facts
