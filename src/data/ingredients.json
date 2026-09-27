@@ -183,7 +183,7 @@
     },
     {
       "id": "lecithin",
-      "names": ["レシチン", "lecithin"],
+      "names": ["レシチン", "lecithin", "卵磷脂"],
       "status": "syubhat",
       "category": "additive",
       "reasoning": "Lesitin generik bisa dari kedelai (halal), kuning telur (halal), atau lemak hewani tak jelas. MUIS menandainya syubhah. Untuk lesitin kedelai spesifik lihat entri '大豆レシチン'.",
@@ -239,6 +239,17 @@
       "category": "sweetener",
       "reasoning": "Gula dari tebu/bit, halal. Gula tidak melalui pemurnian dengan arang tulang dalam kebanyakan produk.",
       "sources": ["LPPOM MUI — bahan nabati"]
+    },
+    {
+      "id": "sugar-alcohol",
+      "names": ["糖アルコール"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "japan-label-rule",
+      "reviewed": true,
+      "category": "sweetener",
+      "reasoning": "Gula alkohol (mis. sorbitol, maltitol, xilitol) adalah pemanis non-khamr; umumnya halal. Curated agar tidak dipetakan ke entri 'alcohol' secara fuzzy.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
     },
     {
       "id": "salt",

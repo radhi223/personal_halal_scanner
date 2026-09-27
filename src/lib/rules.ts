@@ -75,6 +75,71 @@ export const CURATION_RULES: CurationRule[] = [
     reasoning: 'Berasal dari babi (daging/lemak/ekstrak). Haram secara eksplisit.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
   },
+  // --- safety-critical negatives FIRST (before every plant/veg rule) ---------
+  {
+    id: 'ham',
+    label: 'Ham / ハム',
+    status: 'haram',
+    confidence: 'high',
+    category: 'animal',
+    // Negative lookahead avoids ハムスター (hamster) / ハムレット (Hamlet) while
+    // still catching ハム / ロースハム / ハム玉葱入りドレッシング.
+    patterns: [/ハム(?!ス|レ)/],
+    reasoning: 'Ham hampir selalu dari daging babi. Haram.',
+    sources: ['QS Al-Baqarah 2:173', LPPOM],
+  },
+  {
+    id: 'charshu',
+    label: 'Char siu / チャーシュー',
+    status: 'haram',
+    confidence: 'high',
+    category: 'animal',
+    patterns: [/チャーシュー/],
+    reasoning: 'チャーシュー (Chinese roast pork) berbahan dasar daging babi. Haram.',
+    sources: ['QS Al-Baqarah 2:173', LPPOM],
+  },
+  {
+    id: 'animal-plant-fat',
+    label: 'Animal/plant fat / 動植物油脂',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'fat',
+    // MUST precede veg-oil (/植物油/) — 動植物油脂 contains 植物油 as a substring.
+    patterns: [/動植物油脂/, /動植物油/, /動物油脂/, /動物性油脂/, /動物性脂肪/],
+    reasoning: 'Lemak "nabati+hewani" (動植物油脂) memuat lemak hewani tanpa keterangan spesies/sembelihan syar\'i. Syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
+  halalRule('hydrolyzed-yeast', 'Hydrolyzed yeast / 加水分解酵母', [/加水分解酵母/], 'additive', 'Ragi terhidrolisis, halal.'),
+  {
+    id: 'hydrolyzed-protein',
+    label: 'Hydrolyzed protein / たん白加水分解物',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    // Early so 卵/加水分解物 (after VARIANT_FOLD 蛋→卵) and たんぱく質加水分解物
+    // are not swallowed by the egg rule / NOISE_RE.
+    patterns: [
+      /加水分解物/,
+      /加水分解/,
+      /たん白加水分解/,
+      /タンパク加水分解/,
+      /水分解物/,
+      /自己消化物/,
+    ],
+    reasoning: 'Protein terhidrolisis umumnya dari kedelai/jagung, tetapi bisa juga dari hewani. Perlu verifikasi.',
+    sources: [LPPOM, JAKIM],
+  },
+  {
+    id: 'dehydroacetic-acid',
+    label: 'Sodium dehydroacetate / 脱氢乙酸钠',
+    status: 'syubhat',
+    confidence: 'low',
+    category: 'additive',
+    // Early: otherwise /酢酸/, /酢酸na/ shadow it.
+    patterns: [/デヒドロ酢酸/, /脱氢乙酸/],
+    reasoning: 'Pengawet sintetis netral sumber (tidak hewani) tetapi kimiawi; verifikasi label halal. Keyakinan rendah.',
+    sources: ['EFSA — E265/E266', LPPOM],
+  },
   {
     id: 'mirin',
     label: 'Mirin / 料理酒',
@@ -204,6 +269,7 @@ export const CURATION_RULES: CurationRule[] = [
       'Perisa dapat mengandung pelarut alkohol atau turunan hewani. Perlu verifikasi.',
     sources: [LPPOM, JAKIM],
   },
+  halalRule('sugar-alcohol', 'Sugar alcohol / 糖アルコール', [/糖アルコール/], 'sweetener', 'Gula alkohol (mis. sorbitol/マルチトール), umumnya halal; no alkohol khamr.'),
   {
     id: 'alcohol',
     label: 'Alcohol / アルコール',
@@ -339,7 +405,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('citric', 'Citric acid / クエン酸', [/クエン酸/, /クエン/, /柠檬酸/, /エン酸/], 'additive', 'Asam sitrat, halal.'),
   halalRule('lactic-acid', 'Lactic acid / 乳酸', [/乳酸/], 'additive', 'Asam laktat (fermentasi), halal.'),
   halalRule('malic', 'Malic acid / リンゴ酸', [/リンゴ酸/, /りんご酸/], 'additive', 'Asam malat, halal.'),
-  halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/, /ア三/, /味精/], 'additive', 'Asam amino penyedap, halal. 味精 = MSG.'),
+  halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/, /ア三/, /グルタミン酸/, /味精/], 'additive', 'Asam amino penyedap, halal. 味精 = MSG. グルタミン酸 = glutamate.'),
   halalRule('succinate', 'Succinate / コハク酸', [/コハク酸/, /八ク酸/], 'additive', 'Garam asam suksinat, halal.'),
   halalRule('nucleic', 'Nucleic acid / 核酸', [/核酸/], 'additive', 'Asam nukleat penyedap, halal.'),
   halalRule('plant-protein', 'Plant protein / 植物性たん白', [/植物性たん白/, /大豆たん白/], 'plant', 'Protein nabati, halal.'),
@@ -363,16 +429,6 @@ export const CURATION_RULES: CurationRule[] = [
     patterns: [/着色料/, /色料/],
     reasoning: 'Pewarna generik bisa nabati, sintetis, atau serangga/hewani (mis. cochineal). Perlu verifikasi.',
     sources: ['EFSA — pewarna', LPPOM],
-  },
-  {
-    id: 'hydrolyzed-protein',
-    label: 'Hydrolyzed protein / たん白加水分解物',
-    status: 'syubhat',
-    confidence: 'medium',
-    category: 'additive',
-    patterns: [/加水分解/, /たん白加水分解/, /タンパク加水分解/, /水分解物/, /自己消化物/],
-    reasoning: 'Protein terhidrolisis umumnya dari kedelai/jagung, tetapi bisa juga dari hewani. Perlu verifikasi.',
-    sources: [LPPOM, JAKIM],
   },
   {
     id: 'margarine',
@@ -472,16 +528,6 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('veg-color', 'Vegetable colour / 野菜色素', [/野菜色素/], 'colorant', 'Pewarna nabati, halal.'),
   halalRule('nitrite', 'Sodium nitrite / 亜硝酸Na', [/亜硝酸na/, /亜硝酸ナトリウム/], 'additive', 'Natrium nitrit (mineral), halal.'),
   halalRule('propionate', 'Calcium propionate / プロピオン酸Ca', [/プロピオン酸/, /丙酸钙/], 'additive', 'Propionat (pengawet mineral), halal.'),
-  {
-    id: 'dehydroacetic-acid',
-    label: 'Sodium dehydroacetate / 脱氢乙酸钠',
-    status: 'syubhat',
-    confidence: 'low',
-    category: 'additive',
-    patterns: [/脱氢乙酸/, /デヒドロ酢酸/],
-    reasoning: 'Pengawet sintetis netral sumber (tidak hewani) tetapi kimiawi; verifikasi label halal. Keyakinan rendah.',
-    sources: ['EFSA — E265/E266', LPPOM],
-  },
   halalRule('smoke', 'Smoke flavour / くん液', [/くん液/, /燻液/], 'additive', 'Cairan asap, halal.'),
   halalRule('phenylalanine', 'Phenylalanine', [/フェニルアラニン/], 'additive', 'Fenilalanin (asam amino), halal.'),
   halalRule('expanding2', 'Raising agent / 膨脹剤', [/膨脹剤/], 'additive', 'Pengembang, halal.'),
@@ -536,29 +582,6 @@ export const CURATION_RULES: CurationRule[] = [
   // NOTE: fat-generic is anchored (^油脂$ etc.) so it can never swallow
   // 植物油脂/食用植物油脂 (veg-oil, halal). Order is no longer load-bearing.
   {
-    id: 'charshu',
-    label: 'Char siu / チャーシュー',
-    status: 'haram',
-    confidence: 'high',
-    category: 'animal',
-    patterns: [/チャーシュー/],
-    reasoning: 'チャーシュー (Chinese roast pork) berbahan dasar daging babi. Haram.',
-    sources: ['QS Al-Baqarah 2:173', LPPOM],
-  },
-  {
-    id: 'ham',
-    label: 'Ham / ハム',
-    status: 'haram',
-    confidence: 'high',
-    category: 'animal',
-    // NOTE: /ハム/ is a bare substring. It could in theory collide with non-food
-    // katakana (e.g. ハムスター), but such words never appear on ingredient
-    // labels; bare /ハム/ is needed to catch ロースハム / ボンレスハム / ハム.
-    patterns: [/ハム/],
-    reasoning: 'Ham hampir selalu dari daging babi. Haram.',
-    sources: ['QS Al-Baqarah 2:173', LPPOM],
-  },
-  {
     id: 'spirits',
     label: 'Spirits / スピリッツ',
     status: 'haram',
@@ -584,7 +607,8 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'medium',
     category: 'fat',
-    patterns: [/動物油脂/, /動物性油脂/, /調味動物油脂/],
+    // Non-duplicated only: 動物油脂/動物性油脂 now live in the early animal-plant-fat rule.
+    patterns: [/調味動物油脂/],
     reasoning: 'Lemak/minyak hewani tanpa keterangan spesies atau sembelihan syar\'i. Syubhat.',
     sources: [LPPOM, JAKIM],
   },
@@ -835,8 +859,8 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('cinnamon', 'Cinnamon / シナモン', [/シナモン/], 'plant', 'Kayu manis (rempah), halal.'),
   halalRule('eggplant', 'Eggplant / なす', [/なす/], 'plant', 'Terong (sayur), halal.'),
   halalRule('soba', 'Soba / そば', [/そば/], 'plant', 'Soba/buckwheat (biji-bijian), halal.'),
-  halalRule('ikura', 'Salmon roe / いくら', [/いくら/], 'animal', 'Telur ikan salmon (hasil laut), halal.'),
-  halalRule('tarako', 'Cod roe / たらこ', [/たらこ/], 'animal', 'Telur ikan kod/pollock (hasil laut), halal.'),
+  halalRule('ikura', 'Salmon roe / いくら', [/いくら/, /イクラ/], 'animal', 'Telur ikan salmon (hasil laut), halal.'),
+  halalRule('tarako', 'Cod roe / たらこ', [/たらこ/, /タラコ/], 'animal', 'Telur ikan kod/pollock (hasil laut), halal.'),
 
   {
     id: 'generic-extract',

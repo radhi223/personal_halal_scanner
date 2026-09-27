@@ -599,5 +599,49 @@ check('noise: 添加量', isLabelNoise(normalize('添加量')), true);
 check('noise: 気密性容器', isLabelNoise(normalize('気密性容器')), true);
 check('not noise: 保存料', isLabelNoise(normalize('保存料')), false);
 
+// 32. Verifier round: order/safety rules + hydrolyzed protein + negative-claim
+// noise + small vocabulary gaps. Safety-first ordering regressions.
+const FIX32: [string, string][] = [
+  ['動植物油脂', 'syubhat'],
+  ['動植物油', 'syubhat'],
+  ['動物油脂', 'syubhat'],
+  ['植物油脂', 'halal'],
+  ['食用植物油脂', 'halal'],
+  ['油脂', 'syubhat'],
+  ['加水分解酵母', 'halal'],
+  ['蛋白加水分解物', 'syubhat'],
+  ['卵白加水分解物', 'syubhat'],
+  ['たんぱく質加水分解物', 'syubhat'],
+  ['デヒドロ酢酸', 'syubhat'],
+  ['デヒドロ酢酸Na', 'syubhat'],
+  ['ハム', 'haram'],
+  ['ロースハム', 'haram'],
+  ['ハム玉葱入りドレッシング', 'haram'],
+  ['卵磷脂', 'syubhat'],
+  ['大豆レシチン', 'halal'],
+  ['タラコ', 'halal'],
+  ['イクラ', 'halal'],
+  ['グルタミン酸Na', 'halal'],
+  ['糖アルコール', 'halal'],
+];
+for (const [raw, status] of FIX32) {
+  check(`[fix32] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[fix32] ハムスター NOT haram', verdict30('ハムスター').status !== 'haram', true);
+check('[fix32] ハムレット NOT haram', verdict30('ハムレット').status !== 'haram', true);
+check('[fix32] animal-plant-fat rule id', verdict30('動植物油脂').id, 'rule:animal-plant-fat');
+check('[fix32] hydrolyzed-protein rule id', verdict30('蛋白加水分解物').id, 'rule:hydrolyzed-protein');
+check('[fix32] hydrolyzed-yeast rule id', verdict30('加水分解酵母').id, 'rule:hydrolyzed-yeast');
+check('[fix32] dehydroacetic rule id', verdict30('デヒドロ酢酸').id, 'rule:dehydroacetic-acid');
+check('[fix32] ham rule id', verdict30('ハム').id, 'rule:ham');
+check('[fix32] bare たんぱく質 is noise', isLabelNoise(normalize('たんぱく質')), true);
+
+for (const claim of ['乳化剤不使用', '無添加乳化剤']) {
+  check(`[fix32] noise: ${claim}`, isLabelNoise(normalize(claim)), true);
+}
+for (const keep of ['乳化剤', '香料', '着色料']) {
+  check(`[fix32] not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
