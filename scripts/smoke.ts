@@ -498,5 +498,106 @@ check(
   'rule:palm-oil'
 );
 
+// 29. Audit fixes: storage/origin noise, Chinese 浆 fold, HFCS + unlabelled foods.
+for (const noise of [
+  '要冷蔵', '要冷凍', '殺菌', '風味原料', 'かやく', 'ガーナ', 'メキシコ',
+  'ブラジル', 'ベトナム', 'インド', 'タイ産', '北海道', 'g当たり', '当たり',
+]) {
+  check(`noise: ${noise}`, isLabelNoise(normalize(noise)), true);
+}
+// Substring safety: 殺菌 must NOT drop 殺菌液卵 (sterilised liquid egg).
+check('not noise: 殺菌液卵', isLabelNoise(normalize('殺菌液卵')), false);
+check('殺菌液卵 still gets a verdict', analyzeLayered(getCuratedIndex(), getCatalogIndex(), '殺菌液卵').find((f) => f.match)?.match?.entry.status, 'halal');
+for (const keep of ['調味料', '香辛料', '味噌', '醤油']) {
+  check(`not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
+}
+
+check('fold 浆 -> 漿', normalize('果葡糖浆'), '果葡糖漿');
+
+const s17 = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '果葡糖浆、パイナップル、バジル、シナモン、なす、そば、いくら、たらこ'
+);
+const s17m = new Map(s17.filter((f) => f.match).map((f) => [f.normalized, f.match!]));
+check('果葡糖浆 (HFCS) -> halal', s17m.get(normalize('果葡糖浆'))?.entry.status, 'halal');
+const newFoods: [string, string][] = [
+  ['パイナップル', 'halal'],
+  ['バジル', 'halal'],
+  ['シナモン', 'halal'],
+  ['なす', 'halal'],
+  ['そば', 'halal'],
+  ['いくら', 'halal'],
+  ['たらこ', 'halal'],
+];
+for (const [raw, status] of newFoods) {
+  check(`${raw} -> ${status}`, s17m.get(normalize(raw))?.entry.status, status);
+}
+
+// 30. Backlog round: safety-critical negative rules + high-frequency coverage.
+const verdict30 = (raw: string) => {
+  const f = analyzeLayered(getCuratedIndex(), getCatalogIndex(), raw).find((x) => x.match);
+  return { status: f?.match?.entry.status, id: f?.match?.entry.id };
+};
+const SAFETY30: [string, string][] = [
+  ['チャーシュー', 'haram'],
+  ['ハム', 'haram'],
+  ['豚ばら肉', 'haram'],
+  ['スピリッツ', 'haram'],
+  ['粉末酒', 'haram'],
+  ['調味動物油脂', 'syubhat'],
+  ['油脂', 'syubhat'],
+  ['フォンドボー', 'syubhat'],
+  ['ガムベース', 'syubhat'],
+  ['乳化油脂', 'syubhat'],
+  ['牛舌', 'syubhat'],
+  ['植物油脂', 'halal'], // critical non-regression
+  ['加工油脂', 'syubhat'],
+];
+for (const [raw, status] of SAFETY30) {
+  check(`${raw} -> ${status}`, verdict30(raw).status, status);
+}
+for (const raw of ['糖蜜', '米油', 'モナカ', '無脂乳固形分', 'もやし', 'パパイヤ', 'ブラックペッパー']) {
+  check(`${raw} -> halal`, verdict30(raw).status, 'halal');
+}
+check('乳化剤 still resolves to emulsifier', verdict30('乳化剤').id, 'emulsifier');
+
+check('noise: カナダ', isLabelNoise(normalize('カナダ')), true);
+check('noise: チリ', isLabelNoise(normalize('チリ')), true);
+check('noise: イタリア', isLabelNoise(normalize('イタリア')), true);
+check('not noise: チリパウダ', isLabelNoise(normalize('チリパウダ')), false);
+
+// 31. Audit round 2: order-lock regression + Simplified-Chinese cluster + noise.
+const ORDER_LOCK: [string, string][] = [
+  ['植物油脂', 'halal'],
+  ['食用植物油脂', 'halal'],
+  ['油脂', 'syubhat'],
+  ['加工油脂', 'syubhat'],
+];
+for (const [raw, status] of ORDER_LOCK) {
+  check(`[order-lock] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+
+const CN_CLUSTER: [string, string][] = [
+  ['味精', 'halal'],
+  ['精炼棕桐油', 'halal'],
+  ['全脂乳粉', 'halal'],
+  ['加糖れん乳', 'halal'],
+  ['丙酸钙', 'halal'],
+  ['单双甘油脂肪酸酯', 'syubhat'],
+  ['山梨糖醇', 'syubhat'],
+  ['脱氢乙酸钠', 'syubhat'],
+  ['食用香精', 'syubhat'],
+  ['たん白水分解物', 'syubhat'],
+  ['たん白自己消化物', 'syubhat'],
+];
+for (const [raw, status] of CN_CLUSTER) {
+  check(`${raw} -> ${status}`, verdict30(raw).status, status);
+}
+
+check('noise: 添加量', isLabelNoise(normalize('添加量')), true);
+check('noise: 気密性容器', isLabelNoise(normalize('気密性容器')), true);
+check('not noise: 保存料', isLabelNoise(normalize('保存料')), false);
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
