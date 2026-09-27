@@ -1862,5 +1862,68 @@ check(
   'haram:rule:pork'
 );
 
+// 48j. Verifier round 6: more real meat names that produced NO finding (green
+// banner beside halal items) and false positives from the broad cut patterns.
+for (const [name, want] of [
+  ['豚トロ', 'haram:rule:pork'],
+  ['豚ミノ', 'haram:rule:pork'],
+  ['豚ガツ', 'haram:rule:pork'],
+  ['豚の角煮', 'haram:rule:pork'],
+  ['焼き豚', 'haram:rule:pork'],
+  ['豚汁', 'haram:rule:pork'],
+  ['とんかつ', 'haram:rule:pork'],
+  ['トンカツ', 'haram:rule:pork'],
+  ['猪肉', 'haram:rule:pork'],
+  ['スパム', 'haram:rule:pork'],
+  ['地鶏', 'syubhat:rule:chicken'],
+  ['鴨肉', 'syubhat:rule:chicken'],
+  ['焼き鳥', 'syubhat:rule:chicken'],
+  ['砂肝', 'syubhat:rule:chicken'],
+  ['合いびき肉', 'syubhat:rule:meat-cut'],
+  ['挽き肉', 'syubhat:rule:meat-cut'],
+  ['びき肉', 'syubhat:rule:meat-cut'],
+  ['メンチカツ', 'syubhat:rule:meat-cut'],
+  ['背脂', 'syubhat:rule:meat-cut'],
+  ['レバ刺し', 'syubhat:rule:meat-cut'],
+  ['ハチノス', 'syubhat:rule:meat-cut'],
+  ['センマイ', 'syubhat:rule:meat-cut'],
+  ['アキレス腱', 'syubhat:rule:meat-cut'],
+  ['フランクフルト', 'syubhat:rule:meat-cut'],
+  ['サラミ', 'syubhat:rule:meat-cut'],
+] as [string, string][]) {
+  check(`[ver6] ${name} -> ${want}`, device(name), want);
+}
+// False positives from the broad cut patterns must not be meat.
+for (const name of [
+  'ローステッドオニオン',
+  'ローステッドガーリック',
+  'ローステッドポテト',
+  'ロースター',
+  'フカヒレ',
+  'ランプフィッシュ',
+  'サメ軟骨',
+  'トレハロース',
+  'スクロース',
+  'スクラロース',
+  'カクテルソース',
+  'モッツァレラ',
+  'もも',
+  '桃',
+  'もも果汁',
+  'ローストオニオン',
+  '牛乳',
+  '牛蒡',
+  '鶏卵',
+  'ラムネ',
+]) {
+  const f = analyzeLayered(getCuratedIndex(), getCatalogIndex(), name)[0];
+  const id = f?.match?.entry.id ?? '';
+  check(
+    `[ver6] ${name} is not meat`,
+    ['rule:meat-cut', 'rule:pork', 'rule:chicken', 'rule:beef', 'rule:lamb'].includes(id),
+    false
+  );
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

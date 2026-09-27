@@ -186,6 +186,10 @@ export const CURATION_RULES: CurationRule[] = [
       // (verifier round 5: 豚もも肉/豚ひき肉/豚レバー fell through to halal rules)
       /豚もも/, /豚ひき/, /豚挽/, /豚ミンチ/, /豚レバー/, /豚タン/, /豚舌/, /豚肩/, /豚すね/,
       /豚スペアリブ/, /豚足/, /豚ハツ/, /豚ホルモン/, /豚もつ/, /豚軟骨/, /豚テール/, /豚首/, /豚頬/,
+      // Verifier round 6: these common pork names produced no finding at all and
+      // the banner went green beside halal items.
+      /豚トロ/, /豚ミノ/, /豚ガツ/, /豚角煮/, /豚の角煮/, /焼き豚/, /焼豚/, /豚汁/, /とんかつ/,
+      /豚カツ/, /トンカツ/, /猪肉/, /スパム/,
     ],
     reasoning: 'Berasal dari babi (daging/lemak/ekstrak). Haram secara eksplisit.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
@@ -460,7 +464,9 @@ export const CURATION_RULES: CurationRule[] = [
     // meat term cannot be certified halal; it is left syubhat, never halal.
     patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/, /蒸し鶏/, /鶏脂/, /食肉/,
       // Meat cuts (verifier round 5: 鶏もも肉 fell through to the peach rule).
-      /鶏もも/, /鶏ひき/, /鶏挽/, /鶏レバー/, /鶏手羽/, /鶏むね/, /鶏胸/, /鶏皮/, /鶏軟骨/, /鶏もつ/, /鶏ハツ/, /鶏テール/],
+      /鶏もも/, /鶏ひき/, /鶏挽/, /鶏レバー/, /鶏手羽/, /鶏むね/, /鶏胸/, /鶏皮/, /鶏軟骨/, /鶏もつ/, /鶏ハツ/, /鶏テール/,
+      // Verifier round 6: more poultry names that produced no finding.
+      /地鶏/, /鴨肉/, /合鴨/, /焼き鳥/, /やきとり/, /砂肝/, /ぼんじり/],
     reasoning: 'Daging ayam halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa logo/sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -499,12 +505,17 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'medium',
     category: 'animal',
     patterns: [
-      /ひき肉/, /挽肉/, /ミンチ/, /レバー/, /スペアリブ/, /バラ肉/, /もも肉/, /肩ロース/,
-      // ロース needs a meat/cut context: a bare pattern matches the -ose sugars
-      // トレハロース and スクロース (verifier round 5 follow-up: トレハロース was
-      // reported as a meat cut).
-      /(^|肩|ヒレ|もも|バラ|肉|豚|鶏|牛|羊|ラム)ロース(?!ト)/, /ヒレ肉/, /ヒレ/, /手羽/, /ささみ/, /もつ/, /ホルモン/, /ハラミ/,
-      /テール/, /軟骨/, /すね肉/, /肩肉/, /胸肉/, /ランプ/, /シンタマ/, /ウデ肉/, /ネック/,
+      /ひき肉/, /挽肉/, /びき肉/, /挽き肉/, /合い?びき肉/, /合い?挽き肉/, /メンチ/, /ミンチ/,
+      /レバー/, /レバ刺し/, /スペアリブ/, /バラ肉/, /もも肉/, /肩ロース/,
+      // ロース needs a meat/cut context AND must not match ローステッド (roasted):
+      // a bare pattern also catches the -ose sugars トレハロース and スクロース
+      // (verifier rounds 5-6).
+      /(^|肩|ヒレ|もも|バラ|肉|豚|鶏|牛|羊|ラム)ロース(?!ト|テ|タ)/,
+      // ヒレ: shark fin (フカヒレ) is seafood, not meat.
+      /(?<!フカ)ヒレ/, /ヒレカツ/,
+      /手羽/, /ささみ/, /もつ/, /ホルモン/, /ハラミ/, /ミノ(?!酸)/, /ガツ/, /ハチノス/, /センマイ/, /ギアラ/,
+      /角煮/, /背脂/, /アキレス腱/, /すね肉/, /肩肉/, /胸肉/, /シンタマ/, /ウデ肉/,
+      /フランクフルト/, /ウインナー/, /ナゲット/, /サラミ/,
     ],
     reasoning:
       'Potongan daging (sapi/ayam/kambing) tidak bisa dipastikan halal tanpa sertifikasi penyembelihan; syubhat.',
