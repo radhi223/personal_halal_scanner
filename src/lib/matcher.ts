@@ -68,6 +68,13 @@ export function matchNormalized(index: IngredientIndex, normalized: string): Mat
   for (const { term, entry } of index.names) {
     // E-number codes must match exactly — fuzzy on "E1200" vs "量120グ" is nonsense.
     if (entry.id.startsWith('ecode:')) continue;
+    // Safety invariant: fuzzy matching must NEVER produce a haram verdict.
+    // Fuzzy matching is approximate, and a wrong "haram" is a severe false
+    // positive (e.g. 麦芽エキス / 昆布エキス / 野菜エキス matching 豚肉エキス by
+    // one character and condemning a plant/fish extract as pork). Haram claims
+    // therefore require an EXACT match (returned above); this loop is only
+    // allowed to yield a non-haram (halal/syubhat/unknown) approximate match.
+    if (entry.status === 'haram') continue;
     const allowance = Math.min(queryAllowance, maxFuzzyDistance(term.length));
     // Cheap filter: if lengths differ by more than the allowance, distance can't fit.
     if (Math.abs(term.length - normalized.length) > allowance) continue;

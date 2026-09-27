@@ -85,9 +85,16 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'haram',
     confidence: 'high',
     category: 'animal',
-    // Negative lookahead avoids only ハムスター (hamster) / ハムレット (Hamlet);
-    // ハムスライス/ハムステーキ/ハムカツ etc. ARE ham and must resolve haram.
-    patterns: [/ハム(?!スター|レット)/],
+    // Negative lookahead avoids non-pork words that merely contain the kana
+    // ハム: ハムスター (hamster), ハムレット (Hamlet), ハムザ, ハムラビ,
+    // ハムナプトラ, ハムサ, ハムストリング. ハムスライス/ハムステーキ/ハムカツ
+    // etc. still contain bare ハム followed by a non-excluded stem and ARE ham.
+    // The サ stem is narrowed with a lookahead so real foods like ハムサンド /
+    // ハムサラダ stay haram.
+    // アブラハム (Abraham) ends in ハム with nothing after it, so the lookahead
+    // cannot catch it; the negative lookbehind excludes the ブラハム tail. The
+    // graham rule above already handles グラハム (graham).
+    patterns: [/(?<!ブラ)ハム(?!スター|レット|ザ|ラビ|ナプトラ|サ(?!ンド|ラダ)|ストリング)/],
     reasoning: 'Ham hampir selalu dari daging babi. Haram.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
   },
@@ -332,7 +339,7 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'halal',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/卵/, /たまご/, /玉子/, /鶏卵/, /鸡蛋/, /蛋黃/, /蛋黄/],
+    patterns: [/卵/, /たまご/, /玉子/, /鶏卵/, /鸡蛋/, /蛋黃/, /蛋黄/, /雞蛋/, /雞卵/],
     reasoning: 'Telur halal.',
     sources: ['LPPOM MUI — turunan hewani halal', JAKIM],
   },
@@ -411,7 +418,21 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('amino-acid', 'Amino acid / アミノ酸', [/アミノ酸/, /ア三ノ酸/, /ア三/, /グルタミン酸/, /味精/], 'additive', 'Asam amino penyedap, halal. 味精 = MSG. グルタミン酸 = glutamate.'),
   halalRule('succinate', 'Succinate / コハク酸', [/コハク酸/, /八ク酸/], 'additive', 'Garam asam suksinat, halal.'),
   halalRule('nucleic', 'Nucleic acid / 核酸', [/核酸/], 'additive', 'Asam nukleat penyedap, halal.'),
-  halalRule('plant-protein', 'Plant protein / 植物性たん白', [/植物性たん白/, /大豆たん白/], 'plant', 'Protein nabati, halal.'),
+  {
+    id: 'animal-protein',
+    label: 'Animal protein / 動物性蛋白',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    // MUST precede 'plant-protein' below: 動植物蛋白 contains 植物蛋白, so a
+    // plant-protein rule evaluated first would mislabel mixed animal/plant
+    // protein as halal.
+    patterns: [/動物蛋白/, /動物性蛋白/, /動植物蛋白/],
+    reasoning:
+      'Protein hewani (mis. 動物性蛋白/動植物蛋白) tanpa keterangan spesies atau sembelihan syar\'i. Syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
+  halalRule('plant-protein', 'Plant protein / 植物性たん白', [/植物性たん白/, /大豆たん白/, /植物蛋白/, /植物性蛋白/], 'plant', 'Protein nabati, halal.'),
   halalRule('thickener2', 'Thickener / 増粘', [/増粘/, /増幹/, /增粘/, /多糖/, /多糖类/], 'additive', 'Pengental polisakarida, umumnya nabati/mikroba, halal.'),
   {
     id: 'soy-sauce-variant',

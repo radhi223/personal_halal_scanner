@@ -672,5 +672,73 @@ check('[fix33] noise: カフェインフリー', isLabelNoise(normalize('カフ�
 check('[fix33] noise: グルテンフリー', isLabelNoise(normalize('グルテンフリー')), true);
 check('[fix33] noise: 糖類フリー', isLabelNoise(normalize('糖類フリー')), true);
 
+// 34. Safety invariant: fuzzy matching can never yield haram; widened ham
+// lookahead; フリー anchored at token end; Chinese protein/egg coverage.
+const notHaram = (raw: string) => {
+  const f = analyzeLayered(getCuratedIndex(), getCatalogIndex(), raw).find((x) => x.match);
+  return f?.match?.entry.status !== 'haram';
+};
+
+// The 7 plant/fish extracts that used to fuzzy-match 豚肉エキス/豚エキス (haram).
+for (const raw of [
+  '麦芽エキス',
+  '昆布エキス',
+  '野菜エキス',
+  '紅茶エキス',
+  '鰹エキス',
+  'えびエキス',
+  'かにエキス',
+]) {
+  check(`[fix34] ${raw} NOT haram (fuzzy invariant)`, notHaram(raw), true);
+}
+
+// Exact pork extracts must STILL be haram (exact match, not fuzzy).
+for (const raw of ['豚肉エキス', '豚エキス', 'ポークエキス']) {
+  check(`[fix34] ${raw} -> haram (exact)`, verdict30(raw).status, 'haram');
+}
+
+// Core haram exact/rule matches must not regress.
+for (const raw of ['豚肉', 'ベーコン', 'チャーシュー', 'ハム', '焼酎', 'スピリッツ']) {
+  check(`[fix34] ${raw} -> haram`, verdict30(raw).status, 'haram');
+}
+
+// Widened ham lookahead: real ham still haram…
+for (const raw of ['ハム', 'ハムカツ', 'ロースハム', 'ハムスライス', 'ハムステーキ', 'ハムサンド', 'ハムサラダ']) {
+  check(`[fix34] ${raw} -> haram`, verdict30(raw).status, 'haram');
+}
+// …but non-pork words containing ハム are not.
+for (const raw of ['アブラハム', 'ハムザ', 'ハムラビ', 'ハムサ', 'ハムスター']) {
+  check(`[fix34] ${raw} NOT haram`, notHaram(raw), true);
+}
+
+// フリー must be anchored at the END: genuine claims stay noise…
+for (const claim of [
+  'カフェインフリー',
+  'グルテンフリー',
+  '糖類フリー',
+  '添加物フリー',
+  'アルコールフリー',
+]) {
+  check(`[fix34] noise: ${claim}`, isLabelNoise(normalize(claim)), true);
+}
+// …while real words that merely start/contain フリー are kept.
+for (const keep of ['フリーレンジ卵', 'フリーカット', 'フリーズドライ']) {
+  check(`[fix34] not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
+}
+
+// Chinese protein + traditional egg forms.
+const PROTEIN34: [string, string][] = [
+  ['植物蛋白', 'halal'],
+  ['植物性蛋白', 'halal'],
+  ['動物蛋白', 'syubhat'],
+  ['動物性蛋白', 'syubhat'],
+  ['動植物蛋白', 'syubhat'],
+  ['雞蛋', 'halal'],
+  ['雞卵', 'halal'],
+];
+for (const [raw, status] of PROTEIN34) {
+  check(`[fix34] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
