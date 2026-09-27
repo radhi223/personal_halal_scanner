@@ -1,11 +1,28 @@
 /**
- * Result-banner verdict. PURE: no I/O, no imports, easy to unit-test.
+ * Result-banner verdict. PURE: no I/O, easy to unit-test.
  *
  * The banner must never claim safety when the app knows nothing: zero matches,
  * low-quality OCR, or unreviewed-only matches all resolve to a non-green tone.
  */
 
+import type { HalalStatus } from '@/types';
+
 export type VerdictTone = 'danger' | 'caution' | 'unknown' | 'ok';
+
+/**
+ * Status to use for DISPLAY and banner counts.
+ *
+ * An unreviewed entry must never be presented as a verdict. Open Food Facts
+ * `vegan=yes` catalog names carry status 'halal' with `reviewed: false` — that
+ * is an origin SIGNAL, not a review — and counting them as halal produced a
+ * green "semua bahan sudah ditinjau" banner over unreviewed data (found by an
+ * independent verifier, 2026-09-27: マントン → catalog:manganese). Warnings
+ * (haram/syubhat) are never downgraded.
+ */
+export function effectiveStatus(entry: { status: HalalStatus; reviewed?: boolean }): HalalStatus {
+  if (entry.reviewed === false && entry.status === 'halal') return 'unknown';
+  return entry.status;
+}
 
 export interface VerdictInput {
   /** Counts over matched findings only. */

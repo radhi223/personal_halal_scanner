@@ -15,7 +15,7 @@ import { similarity, weightedSimilarity } from '@/lib/levenshtein';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import { CURATION_RULES, matchRule } from '@/lib/rules';
 import { searchIngredients } from '@/lib/search';
-import { computeVerdictBanner } from '@/lib/verdict';
+import { computeVerdictBanner, effectiveStatus } from '@/lib/verdict';
 import {
   extractCandidates,
   extractIngredientSection,
@@ -1447,11 +1447,14 @@ check('[goldenset] 大豆水煮 -> halal', verdict30('大豆水煮').status, 'ha
 check('[goldenset] 酢酸Na -> halal', verdict30('酢酸Na').status, 'halal');
 check('[goldenset] しいたけ -> halal', verdict30('しいたけ').status, 'halal');
 check('[goldenset] しいたけだし -> halal', verdict30('しいたけだし').status, 'halal');
-check('[goldenset] 加工デンプン -> halal', verdict30('加工デンプン').status, 'halal');
+// 加工デンプン is modified starch: syubhat, NOT halal. The earlier expectation
+// encoded a conflicting curated entry (exp:加工テンブン, halal) that was merged
+// into modified-starch after verifier round 2.
+check('[goldenset] 加工デンプン -> syubhat', verdict30('加工デンプン').status, 'syubhat');
 check(
   '[goldenset] 加工デンプン curated id',
   verdict30('加工デンプン').id,
-  'exp:加工テンブン'
+  'modified-starch'
 );
 check(
   '[goldenset] イーストフード -> syubhat (dough conditioner)',
@@ -1493,7 +1496,11 @@ check('[gap1] recovered 小麦粉 -> halal', fldFind.get(normalize('小麦粉'))
 check('[gap1] recovered 食塩 -> halal', fldFind.get(normalize('食塩'))?.entry.status, 'halal');
 check('[gap1] recovered ショートニング -> syubhat', fldFind.get(normalize('ショートニング'))?.entry.status, 'syubhat');
 check('[gap1] recovered ぶどう糖 -> halal', fldFind.get(normalize('ぶどう糖'))?.entry.status, 'halal');
-check('[gap1] split 加工デンプン rejoined', fldFind.get(normalize('加エデ プン'))?.entry.id, 'exp:加工テンブン');
+check(
+  '[gap1] split 加工デンプン rejoined',
+  fldFind.get(normalize('加エデ プン'))?.entry.id,
+  'modified-starch'
+);
 // ハム itself is absent from this OCR run: PaddleOCR dropped the token between
 // チーズ and 卵 (the printed list is …砂糖、チーズ、ハム、卵…, so the OCR shows
 // "…砂糖、 一ズ、、卵…"). No extractor can invent a token the OCR never
@@ -1621,6 +1628,238 @@ check(
   '[gap2] same-id pair keeps both raw forms',
   sameIdRaw.has('香辛料') && sameIdRaw.has('香辛料抽出物'),
   true
+);
+
+// 47. On-device scan regressions (4 real scans, 2026-09-27). Every case below
+// was observed in the device log and produced a wrong or missing verdict before
+// the fix. Each one is pinned here so it cannot come back.
+const device = (text: string) => {
+  const f = analyzeLayered(getCuratedIndex(), getCatalogIndex(), text)[0];
+  return f && f.match ? `${f.match.entry.status}:${f.match.entry.id}` : null;
+};
+
+// 47a. OCR misreads of 調味料 must fold to seasoning, not fuzzy-match 苦味料.
+check('[dev] 添味料 -> seasoning', device('添味料'), 'halal:rule:seasoning');
+check('[dev] 譲味料 -> seasoning', device('譲味料'), 'halal:rule:seasoning');
+check('[dev] 翻味料 -> seasoning', device('翻味料'), 'halal:rule:seasoning');
+
+// 47b. 加工でん粉 misread must stay syubhat (was halal through /でん粉/).
+check('[dev] カエでん粉 -> modified starch', device('カエでん粉'), 'syubhat:modified-starch');
+
+// 47c. パーム油 misread must stay halal palm oil (was unreviewed catalog).
+check('[dev] バーム油 -> palm oil', device('バーム油'), 'halal:rule:palm-oil');
+
+// 47d. Short-fuzzy gate: レート (a チョコレート fragment) must never match ビート.
+const rate = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'レート')[0];
+check('[dev] レート is not ビート', rate?.match?.entry.id === 'exp:ビート', false);
+// Positive control: a genuine OCR confusion still fuzzy-matches through the gate.
+const masuko = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '増古剤')[0];
+check('[dev] 増古剤 still fuzzy-matches', masuko?.match?.kind, 'fuzzy');
+
+// 47e. Garbled allergen declaration must not become an "egg halal" finding.
+const allergenSoup = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '部仁卵乳成分小麦天豆肉を含t'
+);
+check('[dev] garbled allergen line yields no finding', allergenSoup.length, 0);
+
+// 47f. A meat mention inside an allergen declaration is a real signal...
+check('[dev] 一部に豚肉を含む -> haram', device('一部に豚肉を含む'), 'haram:rule:pork');
+// ...but cross-contamination wording is not an ingredient claim.
+const crossContam = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '一部に豚肉を含む製品を製造しています'
+);
+check('[dev] cross-contamination line yields no finding', crossContam.length, 0);
+
+// 47g. A nutrition row glued onto the list must be dropped as a whole, while its
+// real ingredient pieces survive (豆腐用凝固 would otherwise vanish silently).
+const glued = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '(加工でん粉) 豆腐用凝固 部含 熱量78kca一蛋 牛'
+);
+check(
+  '[dev] glued nutrition segment dropped as a whole',
+  glued.every((f) => f.raw !== '豆腐用凝固 部含 熱量78kca一蛋 牛'),
+  true
+);
+check(
+  '[dev] 豆腐用凝固 survives inside a glued segment',
+  glued.some((f) => f.normalized === normalize('豆腐用凝固') && f.match?.entry.status === 'syubhat'),
+  true
+);
+
+// 48. Verifier round 2 findings (2026-09-27).
+// 48a. OCR-fragment curated entries were deleted; the remaining fragment must
+// never resolve to halal (ル色素 used to fuzzy-match the garbage exp:メル色素).
+const ruShikiso = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'ル色素')[0];
+check('[ver2] ル色素 is not halal', ruShikiso?.match?.entry.status === 'halal', false);
+
+// 48b. 加工デンプン (modified starch) must be syubhat in KATAKANA too — it used
+// to exact-match a conflicting curated halal entry.
+check('[ver2] 加工デンプン -> syubhat', device('加工デンプン'), 'syubhat:modified-starch');
+check('[ver2] 加工デンプ -> syubhat', device('加工デンプ'), 'syubhat:modified-starch');
+check('[ver2] 加工でん粉 -> syubhat', device('加工でん粉'), 'syubhat:modified-starch');
+
+// 48c. Duplicate normalized names with different statuses must resolve to the
+// STRICTEST verdict (ecodes.json has 44 such conflicts; buildIndex used to keep
+// whichever came first).
+const strictRank: Record<string, number> = { haram: 0, syubhat: 1, unknown: 2, halal: 3 };
+const byName = new Map<string, string[]>();
+for (const e of loadCurated().entries) {
+  for (const n of e.names) {
+    const k = normalize(n);
+    if (!k) continue;
+    const list = byName.get(k) ?? [];
+    list.push(e.status);
+    byName.set(k, list);
+  }
+}
+let strictViolations = 0;
+let conflictNames = 0;
+for (const [name, statuses] of byName) {
+  const uniq = [...new Set(statuses)];
+  if (uniq.length < 2) continue;
+  conflictNames += 1;
+  const strictest = uniq.sort((a, b) => strictRank[a] - strictRank[b])[0];
+  const resolved = getCuratedIndex().exact.get(name)?.status;
+  if (resolved !== strictest) strictViolations += 1;
+}
+check('[ver2] duplicate names resolved strictly', strictViolations, 0);
+check('[ver2] duplicate-name conflicts exist (guard is live)', conflictNames > 0, true);
+
+// 48d. effectiveStatus: an unreviewed OFF-vegan halal must display as unknown.
+check(
+  '[ver2] unreviewed halal -> unknown',
+  effectiveStatus({ status: 'halal', reviewed: false }),
+  'unknown'
+);
+check(
+  '[ver2] reviewed halal stays halal',
+  effectiveStatus({ status: 'halal', reviewed: true }),
+  'halal'
+);
+check(
+  '[ver2] unreviewed syubhat stays syubhat',
+  effectiveStatus({ status: 'syubhat', reviewed: false }),
+  'syubhat'
+);
+
+// 48e. Cross-contamination / possibility / negation wordings must not claim a
+// meat ingredient, while genuine claims must.
+for (const wording of [
+  '豚肉を含むことがございます',
+  '豚肉を含む事があります',
+  '豚肉を含むケースがあります',
+  '豚肉を含む恐れがあります',
+  '豚肉を含むことが稀にあります',
+  '豚肉が混入するおそれ',
+  '豚肉を使った設備',
+  '豚肉は入っていません',
+  '豚肉を使用しておりません',
+  '豚肉を使用しない',
+  '豚肉を含む製品を製造しています',
+  // verifier round 3: facility / negation forms still missed.
+  '豚肉を取り扱う設備',
+  '豚肉を扱う設備',
+  '豚肉を含む商品を取り扱っています',
+  '豚肉が使われていない',
+  'ラードを使わない',
+  '豚肉エキス不添加',
+  // verifier round 4: ordinary inflections.
+  '豚肉を使っていない',
+  '豚肉は一切使ってない',
+  '豚肉を使うことはない',
+  '豚肉を配合していない',
+  '豚肉を含んでいない',
+  '豚肉は添加していない',
+  '豚肉を使っていない製品',
+  '豚肉ゼロ',
+  'ポークを使っていない',
+  'ゼラチンを使っていない',
+  '鶏肉なし',
+  '牛肉フリー',
+  '本製品は豚肉を使用していません',
+]) {
+  const found = analyzeLayered(getCuratedIndex(), getCatalogIndex(), wording);
+  check(`[ver2] not an ingredient claim: ${wording}`, found.length, 0);
+}
+// Verifier round 3: bare 使用 / 製品 are POSITIVE claims and must survive. The
+// first attempt at this guard dropped them, silently deleting animal-derived
+// ingredients (false-green risk).
+check('[ver3] 牛肉を使用した調味料 -> syubhat', device('牛肉を使用した調味料'), 'syubhat:rule:beef');
+check('[ver3] 豚肉製品 -> haram', device('豚肉製品'), 'haram:rule:pork');
+check('[ver3] チキン製品 -> syubhat', device('チキン製品'), 'syubhat:rule:chicken');
+check('[ver3] ゼラチン使用 -> syubhat', device('ゼラチン使用'), 'syubhat:rule:gelatin');
+check('[ver3] 豚肉(使用) -> haram', device('豚肉(使用)'), 'haram:pork');
+check('[ver3] 豚肉エキス -> haram', device('豚肉エキス'), 'haram:pork-extract');
+check('[ver3] 鶏がらスープ -> syubhat', device('鶏がらスープ'), 'syubhat:rule:chicken');
+// Verifier round 4: 製造/工場/不使用 are substrings of REAL ingredient names —
+// these were silently dropped, turning the banner green next to halal items.
+check('[ver4] 製造用豚肉エキス -> haram', device('製造用豚肉エキス'), 'haram:rule:pork');
+check('[ver4] 豚肉工場製造 -> haram', device('豚肉工場製造'), 'haram:rule:pork');
+check('[ver4] 工場直送豚肉 -> haram', device('工場直送豚肉'), 'haram:rule:pork');
+check('[ver4] 牛肉を製造工程で使用 -> syubhat', device('牛肉を製造工程で使用'), 'syubhat:rule:beef');
+check('[ver4] 鶏肉と洋なし -> syubhat (なし = pear, not a negation)', device('鶏肉と洋なし'), 'syubhat:rule:chicken');
+const compoundLine = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '豚肉不使用のラード入り食品'
+);
+check(
+  '[ver4] compound negation+claim keeps the claim',
+  compoundLine.some((f) => f.match?.entry.status === 'haram'),
+  true
+);
+check('[ver2] 一部に豚肉を含む -> haram', device('一部に豚肉を含む'), 'haram:rule:pork');
+check('[ver2] 豚肉、玉ねぎ -> haram', device('豚肉、玉ねぎ、にんじん'), 'haram:pork');
+check('[ver2] 豚肉を含む食用油脂 -> haram', device('豚肉を含む食用油脂'), 'haram:rule:pork');
+
+// 48f. Pure-indel exception recovers dropped-glyph fragments...
+check('[ver2] ゼチン -> gelatin syubhat', device('ゼチン'), 'syubhat:gelatin');
+check('[ver2] マントン -> lamb syubhat', device('マントン'), 'syubhat:lamb');
+// ...but a 3-char unrelated substitution is still refused.
+const rateAgain = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'レート')[0];
+check('[ver2] レート still not ビート', rateAgain?.match?.entry.id === 'exp:ビート', false);
+
+// 48g. Confusion-map additions (kanji shape + hira/kata) recover real terms.
+check('[ver2] 上自糖 -> sugar', device('上自糖'), 'halal:sugar');
+check('[ver2] 木醸造 -> syubhat', device('木醸造'), 'syubhat:exp:本醸造');
+check('[ver2] 鳥龍茶 -> halal', device('鳥龍茶'), 'halal:exp:烏龍茶');
+check('[ver2] びーフ -> beef syubhat', device('びーフ'), 'syubhat:beef');
+
+// 48h. Verifier round 5: meat CUTS were falling through to plant rules —
+// 豚もも肉 matched the peach rule and reported HALAL next to halal items.
+check('[ver5] 豚もも肉 -> haram', device('豚もも肉'), 'haram:rule:pork');
+check('[ver5] 豚ひき肉 -> haram', device('豚ひき肉'), 'haram:rule:pork');
+check('[ver5] 豚レバー -> haram', device('豚レバー'), 'haram:rule:pork');
+check('[ver5] 豚肩ロース -> haram', device('豚肩ロース'), 'haram:rule:pork');
+check('[ver5] 豚タン -> haram', device('豚タン'), 'haram:rule:pork');
+check('[ver5] 鶏もも肉 -> syubhat', device('鶏もも肉'), 'syubhat:rule:chicken');
+check('[ver5] 牛もも肉 -> syubhat', device('牛もも肉'), 'syubhat:rule:beef');
+check('[ver5] ラムもも肉 -> syubhat', device('ラムもも肉'), 'syubhat:rule:lamb');
+check('[ver5] もも肉 -> syubhat meat cut', device('もも肉'), 'syubhat:rule:meat-cut');
+check('[ver5] ひき肉 -> syubhat meat cut', device('ひき肉'), 'syubhat:rule:meat-cut');
+// -ose sugars must NOT be meat cuts (トレハロース contains ロース).
+const treha = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'トレハロース')[0];
+check('[ver5] トレハロース is not a meat cut', treha?.match?.entry.id === 'rule:meat-cut', false);
+const sucro = analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'スクロース')[0];
+check('[ver5] スクロース is not a meat cut', sucro?.match?.entry.id === 'rule:meat-cut', false);
+// Plants/dairy must not be swallowed by the meat-cut safety net.
+check('[ver5] もも -> peach', device('もも'), 'halal:rule:peach');
+check('[ver5] ローストオニオン -> onion', device('ローストオニオン'), 'halal:rule:onion');
+check('[ver5] 牛乳 -> milk', device('牛乳'), 'halal:rule:milk');
+check('[ver5] 鶏卵 -> egg', device('鶏卵'), 'halal:rule:egg');
+
+// 48i. Verifier round 5: same-token negation + claim must keep the claim.
+check('[ver5] 豚肉不使用の豚肉エキス入り -> haram', device('豚肉不使用の豚肉エキス入り'), 'haram:rule:pork');
+check(
+  '[ver5] 豚肉を使っていないが豚肉エキスは入っている -> haram',
+  device('豚肉を使っていないが豚肉エキスは入っている'),
+  'haram:rule:pork'
 );
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

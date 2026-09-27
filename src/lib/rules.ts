@@ -181,6 +181,11 @@ export const CURATION_RULES: CurationRule[] = [
     patterns: [
       /豚肉/, /ぶたにく/, /ポーク/, /ラード/, /豚脂/, /豚エキス/, /豚肉エキス/, /豚骨/, /豚ガラ/,
       /豚ばら/, /豚バラ/, /豚ロース/, /豚ヒレ/, /豚生姜/,
+      // Meat cuts. NB: explicit forms only — a bare /豚/ would also catch 海豚
+      // (dolphin) and 河豚 (pufferfish), which are seafood, not pork.
+      // (verifier round 5: 豚もも肉/豚ひき肉/豚レバー fell through to halal rules)
+      /豚もも/, /豚ひき/, /豚挽/, /豚ミンチ/, /豚レバー/, /豚タン/, /豚舌/, /豚肩/, /豚すね/,
+      /豚スペアリブ/, /豚足/, /豚ハツ/, /豚ホルモン/, /豚もつ/, /豚軟骨/, /豚テール/, /豚首/, /豚頬/,
     ],
     reasoning: 'Berasal dari babi (daging/lemak/ekstrak). Haram secara eksplisit.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
@@ -453,7 +458,9 @@ export const CURATION_RULES: CurationRule[] = [
     // 蒸し鶏 (steamed chicken) and 鶏脂 (chicken fat) are unlabeled poultry.
     // 食肉 ("meat") is added here (chicken = first meat rule) because a generic
     // meat term cannot be certified halal; it is left syubhat, never halal.
-    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/, /蒸し鶏/, /鶏脂/, /食肉/],
+    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/, /蒸し鶏/, /鶏脂/, /食肉/,
+      // Meat cuts (verifier round 5: 鶏もも肉 fell through to the peach rule).
+      /鶏もも/, /鶏ひき/, /鶏挽/, /鶏レバー/, /鶏手羽/, /鶏むね/, /鶏胸/, /鶏皮/, /鶏軟骨/, /鶏もつ/, /鶏ハツ/, /鶏テール/],
     reasoning: 'Daging ayam halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa logo/sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -463,7 +470,9 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/ビーフ/, /牛肉/, /牛脂/, /ヘット/, /牛舌/, /牛タン/],
+    patterns: [/ビーフ/, /牛肉/, /牛脂/, /ヘット/, /牛舌/, /牛タン/,
+      // Meat cuts. NB: never bare /牛/ — it matches 牛乳 (milk) and 牛蒡 (burdock).
+      /牛もも/, /牛ひき/, /牛挽/, /牛レバー/, /牛バラ/, /牛肩/, /牛ロース/, /牛ヒレ/, /牛すね/, /牛テール/, /牛軟骨/, /牛もつ/, /牛ハツ/],
     reasoning: 'Daging/lemak sapi halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -474,8 +483,31 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'medium',
     category: 'animal',
     // NB: never bare /ラム/ — it matches グラム (gram). Require a meat context.
-    patterns: [/ラム肉/, /ラムチョップ/, /羊肉/, /マトン/],
+    patterns: [/ラム肉/, /ラムチョップ/, /羊肉/, /マトン/, /羊もも/, /ラムもも/, /羊肩/, /ラム肩/],
     reasoning: 'Daging kambing/domba halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa sertifikasi halal, syubhat.',
+    sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
+  },
+  {
+    // Generic meat-cut safety net. An unidentified cut (もも肉, ひき肉, レバー)
+    // cannot be certified halal and must never fall through to a plant rule:
+    // verifier round 5 caught 豚もも肉 -> halal:rule:peach and 豚肩ロース ->
+    // halal:exp:スクロース. Species rules run first, so 豚肉/牛肉/鶏肉 keep their
+    // own verdicts; this rule only catches the rest.
+    id: 'meat-cut',
+    label: 'Meat cut / 肉の部位',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'animal',
+    patterns: [
+      /ひき肉/, /挽肉/, /ミンチ/, /レバー/, /スペアリブ/, /バラ肉/, /もも肉/, /肩ロース/,
+      // ロース needs a meat/cut context: a bare pattern matches the -ose sugars
+      // トレハロース and スクロース (verifier round 5 follow-up: トレハロース was
+      // reported as a meat cut).
+      /(^|肩|ヒレ|もも|バラ|肉|豚|鶏|牛|羊|ラム)ロース(?!ト)/, /ヒレ肉/, /ヒレ/, /手羽/, /ささみ/, /もつ/, /ホルモン/, /ハラミ/,
+      /テール/, /軟骨/, /すね肉/, /肩肉/, /胸肉/, /ランプ/, /シンタマ/, /ウデ肉/, /ネック/,
+    ],
+    reasoning:
+      'Potongan daging (sapi/ayam/kambing) tidak bisa dipastikan halal tanpa sertifikasi penyembelihan; syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
   {
@@ -971,7 +1003,9 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('daikon', 'Daikon / だいこん', [/だいこん/, /ダイコン/, /大根/], 'plant', 'Lobak putih, halal.'),
   halalRule('black-tea', 'Black tea / 紅茶', [/紅茶/], 'plant', 'Teh hitam, halal.'),
   halalRule('watercress', 'Watercress / クレソン', [/クレソン/], 'plant', 'Selada air, halal.'),
-  halalRule('peach', 'Peach / もも', [/もも/, /モモ/, /桃/], 'plant', 'Persik, halal.'),
+  // NB: never bare /もも/ — 豚もも肉/鶏もも肉 are MEAT CUTS and this rule made
+  // them halal (verifier round 5). Peach never appears as もも肉.
+  halalRule('peach', 'Peach / もも', [/もも(?!肉)/, /モモ(?!肉)/, /桃/], 'plant', 'Persik, halal.'),
   halalRule('arginine', 'Arginine / アルギニン', [/アルギニン/], 'additive', 'Arginin (asam amino), halal.'),
   halalRule('isoleucine', 'Isoleucine / イソロイシン', [/イソロイシン/], 'additive', 'Isoleusin (asam amino), halal.'),
   halalRule('napa', 'Napa cabbage / はくさい', [/はくさい/, /ハクサイ/, /白菜/], 'plant', 'Sawi putih, halal.'),

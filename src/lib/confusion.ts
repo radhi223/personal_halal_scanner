@@ -101,6 +101,23 @@ group(0.35, '葱五玉'); // 玉葱 -> 五葱
 group(0.35, '瓜爪辰'); // 胡瓜 -> 爪 / 辰
 group(0.35, '砂沙'); // 砂糖 -> 沙糖
 group(0.35, '澱殿'); // 澱粉 -> 殿粉
+// Shape lookalikes measured by the independent verifier (2026-09-27) as losses
+// caused by the short-term fuzzy gate: 上白糖->上自糖, 植脂末->植脂未,
+// 本醸造->木醸造, 烏龍茶->鳥龍茶, plus 大豆 read as 天豆 in our own device log.
+group(0.35, '白自');
+group(0.35, '未末');
+group(0.35, '本木');
+group(0.35, '烏鳥');
+group(0.35, '大天');
+
+// --- hiragana <-> katakana (same sound, same word) ----------------------------
+// OCR occasionally switches script mid-word (ビーフ -> びーフ, みりん -> ミりん);
+// the verifier measured 210 such losses. The same phoneme is the same word, so a
+// swap is always a cheap OCR confusion and never a meaning change. Rules use
+// regexes on the raw script, so this only affects the fuzzy layer.
+const HIRAGANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんがぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽゃゅょっ';
+const KATAKANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポャュョッ';
+for (let i = 0; i < HIRAGANA.length; i++) pair(HIRAGANA[i], KATAKANA[i], 0.3);
 
 // --- latin / digits -----------------------------------------------------------
 group(0.2, 'O0');

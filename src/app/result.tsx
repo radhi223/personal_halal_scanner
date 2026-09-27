@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { appendFeedbackRecord } from '@/lib/debugFile';
 import { getLastScan } from '@/lib/scanStore';
-import { computeVerdictBanner } from '@/lib/verdict';
+import { computeVerdictBanner, effectiveStatus } from '@/lib/verdict';
 import { colors, statusColor, statusLabel, statusRank, verdictToneColor } from '@/theme';
 import type { HalalStatus, IngredientEntry, ScanFinding } from '@/types';
 
@@ -34,8 +34,8 @@ export default function ResultScreen() {
     return scan.findings
       .filter((f) => f.match)
       .sort((a, b) => {
-        const ra = a.match ? statusRank[a.match.entry.status] : 99;
-        const rb = b.match ? statusRank[b.match.entry.status] : 99;
+        const ra = a.match ? statusRank[effectiveStatus(a.match.entry)] : 99;
+        const rb = b.match ? statusRank[effectiveStatus(b.match.entry)] : 99;
         if (ra !== rb) return ra - rb;
         return (b.match?.score ?? 0) - (a.match?.score ?? 0);
       });
@@ -44,7 +44,9 @@ export default function ResultScreen() {
   const counts = useMemo(() => {
     const base: Record<HalalStatus, number> = { haram: 0, syubhat: 0, halal: 0, unknown: 0 };
     for (const f of matched) {
-      if (f.match) base[f.match.entry.status] += 1;
+      // effectiveStatus: an unreviewed OFF "vegan" halal must count as unknown,
+      // otherwise the banner goes green over unreviewed data.
+      if (f.match) base[effectiveStatus(f.match.entry)] += 1;
     }
     return base;
   }, [matched]);
@@ -168,7 +170,8 @@ export default function ResultScreen() {
 function FindingCard({ finding, sid }: { finding: ScanFinding; sid: string }) {
   const match = finding.match!;
   const entry = match.entry;
-  const color = statusColor[entry.status];
+  const shown = effectiveStatus(entry);
+  const color = statusColor[shown];
   const [marked, setMarked] = useState(false);
 
   const markWrong = () => {
@@ -191,7 +194,7 @@ function FindingCard({ finding, sid }: { finding: ScanFinding; sid: string }) {
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{finding.raw}</Text>
         <View style={[styles.badge, { backgroundColor: color }]}>
-          <Text style={styles.badgeText}>{statusLabel[entry.status]}</Text>
+          <Text style={styles.badgeText}>{statusLabel[shown]}</Text>
         </View>
       </View>
 

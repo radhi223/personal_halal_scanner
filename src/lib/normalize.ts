@@ -38,12 +38,40 @@ const VARIANT_FOLD: Record<string, string> = {
 const VARIANT_RE = new RegExp(`[${Object.keys(VARIANT_FOLD).join('')}]`, 'g');
 
 /**
+ * Phrase-level OCR folds. Character folding cannot express these: the OCR read
+ * a whole word wrong, not a single glyph. Every pair below was observed in a
+ * real on-device scan (2026-09-27, 4 scans) and each one previously produced a
+ * WRONG match:
+ *  - 添味料/譲味料/翻味料 → 調味料 (seasoning). Without the fold the token was
+ *    one character from 苦味料 (bitter agent) and matched it fuzzily.
+ *  - カエでん粉/加エでん粉 → 加工でん粉 (modified starch). Without the fold the
+ *    /でん粉/ halal rule won and the syubhat status was lost.
+ *  - バーム油 → パーム油 (palm oil). Without the fold it fell through to an
+ *    unreviewed catalog entry.
+ * Folding is deterministic and exact, so it is strictly safer than widening the
+ * fuzzy threshold. DB names are folded too, which is harmless (no curated name
+ * equals a fold source).
+ */
+const PHRASE_FOLD: [string, string][] = [
+  ['添味料', '調味料'],
+  ['譲味料', '調味料'],
+  ['翻味料', '調味料'],
+  ['諏味料', '調味料'],
+  ['カエでん粉', '加工でん粉'],
+  ['加エでん粉', '加工でん粉'],
+  ['バーム油', 'パーム油'],
+];
+
+/**
  * Canonical form: NFKC (full-width -> half-width, half-width katakana -> full),
  * variant CJK folded, lowercased, punctuation and whitespace stripped.
  */
 export function normalize(input: string): string {
   if (!input) return '';
   let s = input.normalize('NFKC');
+  for (const [from, to] of PHRASE_FOLD) {
+    if (s.includes(from)) s = s.split(from).join(to);
+  }
   s = s.replace(VARIANT_RE, (c) => VARIANT_FOLD[c]);
   s = s.toLowerCase();
   s = s.replace(WHITESPACE, '');
@@ -275,7 +303,100 @@ function isOcrSoup(normalized: string): boolean {
   if (!/\d/.test(normalized)) return false;
   if (NUTRITION_IN_TOKEN_RE.test(normalized)) return true;
   const stems = new Set(normalized.match(FOOD_STEM_RE) ?? []);
-  return stems.size >= 3;
+  // Threshold lowered 3 -> 2 after a real on-device scan (2026-09-27) merged a
+  // nutrition row into an ingredient: "水 化 物 6.4 大豆 粉" normalized to
+  // 水化物6.4大豆粉 (2 stems: 豆, 粉) and matched the /大豆/ halal rule. Real
+  // ingredient names never contain digits, so a numbered token with two
+  // food-class stems is always glued table text.
+  return stems.size >= 2;
+}
+
+/**
+ * Allergen declaration boilerplate ("一部に卵・乳成分・小麦・大豆を含む"), often
+ * OCR-garbled to 部仁…を含t. This is a declaration, not an ingredient: the real
+ * ingredients are already listed separately in the 原材料名 list, so leaving it
+ * in produced a bogus finding (device scan 2026-09-27 matched the garbled
+ * string to the egg rule and printed "halal").
+ *
+ * Guard: drop the token only when it carries a boilerplate marker AND names at
+ * least two allergens, and NEVER when it names a meat species — a declaration
+ * that mentions 豚肉/鶏肉/牛肉/ゼラチン is a genuine (and high-stakes) signal
+ * that must keep flowing to the meat rules.
+ */
+const ALLERGEN_BOILERPLATE_RE = /(一部に|部仁|を含)/;
+const ALLERGEN_WORD_RE =
+  /(卵|乳成分|小麦|そば|落花生|えび|かに|オレンジ|キウイ|バナナ|もも|りんご|ゼラチン|大豆)/g;
+const MEAT_SPECIES = '(豚|鶏|牛|羊|ラード|ポーク|チキン|ビーフ|ゼラチン)';
+/** Non-global: safe for repeated .test(). */
+const MEAT_SPECIES_RE = new RegExp(MEAT_SPECIES);
+/** Global: for counting how many different animal ingredients a token names. */
+const MEAT_SPECIES_RE_G = new RegExp(MEAT_SPECIES, 'g');
+
+/**
+ * Non-ingredient mention patterns. A meat word inside one of these is a statement
+ * about equipment, a possibility, or a NEGATION — never an ingredient claim.
+ *
+ * Hard-won constraints (verifier rounds 3-4, 2026-09-27):
+ *  - Bare 使用 / 使った / 製品 are POSITIVE claims ("牛肉を使用した調味料",
+ *    "ゼラチン使用", "豚肉製品") and must reach the meat rules.
+ *  - Bare 製造 / 工場 are substrings of real ingredient names ("製造用豚肉エキ
+ *    ス", "豚肉工場製造", "工場直送豚肉"), so they only count inside a verb
+ *    phrase ("製造しています") or an explicit locative ("工場では").
+ *  - なし must not fire inside 洋なし (pear).
+ *  - Inflections matter: 使っていない / 使ってない / 使わない / 使用しない /
+ *    含まない / 添加していない / 配合していない / ことはない / おりません all
+ *    occur on real labels.
+ */
+const NON_INGREDIENT_MENTION_RE = new RegExp(
+  [
+    // equipment / facility (phrase-level only)
+    '設備',
+    '工場(では|にて|において)',
+    '製造(しています|しました|している|された)',
+    '取り扱(う|っ|い|き)',
+    '扱(う|っ|い|き)',
+    // possibility / contamination
+    '場合(が|も)あります',
+    '可能性があります',
+    'ことが(あり|ござい)ます',
+    '事が(あり|ござい)ます',
+    'ケースがあります',
+    '恐れがあります',
+    'おそれがあります',
+    '稀にあります',
+    'かもしれません',
+    '混入',
+    // negation
+    '(使って|使われて|使用して|使用されて|添加して|添加されて|配合して|配合されて|含んで|含まれて|入って|されて)(い)?(ない|ません|なかった)',
+    '(使って|使われて|使用して|使用されて|添加して|添加されて|配合して|配合されて|含んで|含まれて|入って|されて)おりません',
+    '(使い|使用し|添加し|配合し|含み|入り)ません',
+    '(使わ|使用し|添加し|配合し|含ま|入ら)ない',
+    '(使う|含む|使われる|添加する|配合する|入る)ことは(ない|ありません|ございません)',
+    '原料としていません',
+    '無(豚|牛|鶏|羊|肉|ポーク|チキン|ビーフ|ラード|ゼラチン)',
+    '未使用',
+    '未添加',
+    '不使用',
+    '不添加',
+    '無添加',
+    '不含',
+    '含まず',
+    '使わず',
+    'ノン',
+    'ありません',
+    'フリー',
+    'ゼロ',
+    '除去',
+    '取扱',
+    '(?<!洋)なし',
+  ].join('|')
+);
+
+function isAllergenBoilerplate(normalized: string): boolean {
+  if (!ALLERGEN_BOILERPLATE_RE.test(normalized)) return false;
+  if (MEAT_SPECIES_RE.test(normalized)) return false;
+  const allergens = new Set(normalized.match(ALLERGEN_WORD_RE) ?? []);
+  return allergens.size >= 2;
 }
 
 /** True if a text line looks like the ingredient-list header (原材料名 variants). */
@@ -304,11 +425,35 @@ export function isCropBoundary(text: string): boolean {
 /** True if a normalized token is label metadata rather than an ingredient. */
 export function isLabelNoise(normalized: string): boolean {
   if (!normalized) return true;
+  // A meat word needs care: it is either a real ingredient claim or a statement
+  // about the factory / a possibility / an explicit negation.
+  //  - "一部に豚肉を含む" is a genuine claim and must reach the pork rule
+  //    (NOISE_RE's 一部に/を含む used to swallow it silently).
+  //  - "豚肉を含む製品を製造しています", "豚肉を使った設備", "豚肉は入ってい
+  //    ません" are not ingredient claims and must never be reported as haram.
+  if (MEAT_SPECIES_RE.test(normalized)) {
+    // Drop the token ONLY when it mentions the animal exactly ONCE and carries a
+    // non-claim marker. Two mentions ("豚肉不使用の豚肉エキス入り",
+    // "豚肉を使っていないが豚肉エキスは入っている") mean a negation and a
+    // positive claim share one token — the claim must win, otherwise the pork
+    // disappears and the banner goes green (verifier rounds 4-5).
+    const mentions = [...normalized.matchAll(MEAT_SPECIES_RE_G)];
+    if (mentions.length === 1 && NON_INGREDIENT_MENTION_RE.test(normalized)) return true;
+    // Everything else is an ingredient claim. NOISE_RE's 製造/工場/不使用
+    // substrings must NOT swallow it: 製造用豚肉エキス, 豚肉工場製造,
+    // 工場直送豚肉, 牛肉を製造工程で使用 and 豚肉不使用のラード入り食品 were all
+    // silently deleted this way (verifier round 4) — a green banner beside halal
+    // items while a pork/lard claim sat in the list.
+    if (isOcrSoup(normalized)) return true;
+    if (/\d/.test(normalized) && UNIT_RE.test(normalized)) return true;
+    return false;
+  }
   if (NOISE_EXACT.has(normalized)) return true;
   if (NOISE_RE.test(normalized)) return true;
   if (ADDRESS_RE.test(normalized)) return true;
   if (/\d/.test(normalized) && UNIT_RE.test(normalized)) return true;
   if (isOcrSoup(normalized)) return true;
+  if (isAllergenBoilerplate(normalized)) return true;
   if (/^[¥￥$]?\d/.test(normalized)) return true; // prices / quantities / dates
   if (/^\d+$/.test(normalized)) return true;
   return false;
@@ -327,6 +472,11 @@ export function extractCandidates(text: string): string[] {
   // OCR often injects table-border characters into the middle of words
   // (e.g. マヨネ + "|" + ズ). Drop them so the word can reassemble.
   text = text.replace(/[|｜│┃]/g, '');
+
+  // A compound line can mix a negated and a positive claim
+  // ("ゼラチン不使用だが豚肉エキス使用"). Split on conjunctions so each half is
+  // judged on its own instead of the negation swallowing the pork mention.
+  text = text.replace(/(だが|しかし|けれど|けど|ただし)/g, '、');
 
   // NB: ､ (half-width comma) and ｡ (half-width full stop) are included
   // literally — NFKC would fold them to 、/。, but the raw text is split BEFORE
@@ -352,6 +502,14 @@ export function extractCandidates(text: string): string[] {
 
   for (const segment of segments) {
     push(segment);
+    // Sub-parts ARE mined even from a glued OCR-soup segment, on purpose.
+    // A golden-set image (off_4517888131963) has "...(加工でん粉) 豆腐用凝固
+    // 部含 熱量78kca一蛋 牛" — a nutrition row merged onto the list — and
+    // 豆腐用凝固 only survives because the segment's space-separated pieces are
+    // kept. Skipping them (tried 2026-09-27) silently deleted that syubhat
+    // ingredient. The cost is the occasional junk sub-part from a nutrition row
+    // (水 化 物 6.4 大豆 粉 -> 大豆), which only ever reports a real ingredient's
+    // correct status and cannot mask a hazard.
     const parts = segment.split(WHITESPACE);
     if (parts.length > 1) {
       for (const part of parts) push(part);

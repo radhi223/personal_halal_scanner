@@ -49,9 +49,13 @@ function taxonomyEntries(tax) {
     const names = [];
     const n = e.name || {};
     const ja = n.ja;
+    // OFF stores e_number as an object ({"en":"404"}), not a string. String()
+    // on it produced the literal "[object Object]" — 633 catalog entries carried
+    // that as a name AND as their eNumber (data-quality bug found 2026-09-27).
+    const eNum = e.e_number?.en ? `E${String(e.e_number.en).replace(/^e/i, '')}` : null;
     if (ja && JP_RE.test(ja)) names.push(ja);
     if (ja && E_RE.test(ja.trim())) names.push(ja.trim());
-    if (e.e_number) names.push(String(e.e_number));
+    if (eNum) names.push(eNum);
     if (n.en) names.push(n.en);
 
     const seen = new Set();
@@ -68,7 +72,7 @@ function taxonomyEntries(tax) {
       id: rawId.replace(/^[a-z]{2}:/, ''),
       names: clean,
       src: 'tax',
-      ...(e.e_number ? { eNumber: String(e.e_number) } : {}),
+      ...(eNum ? { eNumber: eNum } : {}),
       // Open Food Facts origin signals (weak; not a halal verdict).
       ...(e.vegan && e.vegan.en ? { vegan: e.vegan.en } : {}),
       ...(e.vegetarian && e.vegetarian.en ? { vegetarian: e.vegetarian.en } : {}),

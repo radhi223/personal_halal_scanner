@@ -1,4 +1,4 @@
-import type { IngredientEntry, MatchResult, ScanFinding } from '@/types';
+import type { HalalStatus, IngredientEntry, MatchResult, ScanFinding } from '@/types';
 import { substitutionCost } from './confusion';
 import { levenshtein, weightedSimilarity } from './levenshtein';
 import { extractCandidates, normalize } from './normalize';
@@ -9,6 +9,17 @@ import { matchRule, ruleToMatch } from './rules';
  * does the real gating; this rejects wildly different strings.
  */
 export const MIN_FUZZY_SIMILARITY = 0.5;
+
+/**
+ * Short-term fuzzy gate. For terms of three characters or fewer, a single
+ * unrelated character swap is NOT evidence of the same ingredient: on-device
+ * scans (2026-09-27) showed レート — a fragment of チョコレート — fuzzy-matching
+ * ビート (beet, halal) and 添味料 matching 苦味料 (bitter agent, halal). A
+ * genuine OCR confusion scores high (cheap swap cost <= 0.4 -> similarity
+ * >= 0.867), while an unrelated swap (0.667) or an insertion (0.75) falls
+ * below. Longer terms keep the ordinary 0.5 floor.
+ */
+export const MIN_FUZZY_SIMILARITY_SHORT = 0.85;
 
 /**
  * Allowed edit distance by term length. Japanese ingredient terms are short,
@@ -38,6 +49,20 @@ export interface IngredientIndex {
   haramNames: NamedTerm[];
 }
 
+/**
+ * Strictness order used when two entries share one normalized name (e.g. the
+ * ecodes file maps "acesulfame potassium" to both E714 and E950 with different
+ * statuses, and 加工デンプン was claimed halal by one entry while another called
+ * it syubhat). The exact map must keep the STRICTEST verdict: a duplicate must
+ * never be able to soften a warning into halal. haram > syubhat > unknown > halal.
+ */
+const STRICTNESS: Record<HalalStatus, number> = {
+  haram: 0,
+  syubhat: 1,
+  unknown: 2,
+  halal: 3,
+};
+
 export function buildIndex(entries: IngredientEntry[]): IngredientIndex {
   const exact = new Map<string, IngredientEntry>();
   const names: NamedTerm[] = [];
@@ -47,7 +72,12 @@ export function buildIndex(entries: IngredientEntry[]): IngredientIndex {
     for (const alias of entry.names) {
       const term = normalize(alias);
       if (!term) continue;
-      if (!exact.has(term)) exact.set(term, entry);
+      const current = exact.get(term);
+      if (!current) {
+        exact.set(term, entry);
+      } else if (STRICTNESS[entry.status] < STRICTNESS[current.status]) {
+        exact.set(term, entry);
+      }
       names.push({ term, entry });
       if (entry.status === 'haram') haramNames.push({ term, entry });
     }
@@ -122,6 +152,17 @@ export function matchNormalized(index: IngredientIndex, normalized: string): Mat
     if (distance > allowance) continue;
     const score = weightedSimilarity(normalized, term, substitutionCost);
     if (score < MIN_FUZZY_SIMILARITY) continue;
+    // Short terms need a recognised OCR confusion, not just "one character off".
+    // Exception: a PURE insertion/deletion into a term of 4+ characters is the
+    // classic dropped-glyph OCR error (ゼラチン -> ゼチン, gelatin, syubhat) and
+    // is allowed — the verifier measured 749 such losses without it. A
+    // substitution of unrelated characters (レート -> ビート) stays refused.
+    if (Math.min(normalized.length, term.length) <= 3 && score < MIN_FUZZY_SIMILARITY_SHORT) {
+      const pureIndel =
+        distance === Math.abs(normalized.length - term.length) &&
+        Math.max(normalized.length, term.length) >= 4;
+      if (!pureIndel) continue;
+    }
     // Catalog names are unreviewed: demand a high bar so OCR gibberish
     // (e.g. "SoooN" vs "boron") cannot borrow a real ingredient's status.
     if (entry.id.startsWith('catalog:') && score < 0.7) continue;

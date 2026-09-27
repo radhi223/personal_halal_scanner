@@ -209,7 +209,7 @@
     },
     {
       "id": "modified-starch",
-      "names": ["加工でん粉", "化工でん粉", "加工澱粉", "modified starch"],
+      "names": ["加工でん粉", "化工でん粉", "加工澱粉", "modified starch", "加工デンプン", "加工デンプ", "加工テンブン"],
       "status": "syubhat",
       "category": "additive",
       "reasoning": "Pati termodifikasi umumnya nabati, tetapi modifikasi dapat memakai reagen/asam lemak hewani. Sebagian besar pati bersifat halal; verifikasi bila ragu.",
@@ -1054,28 +1054,6 @@
       "reviewed": true,
       "category": "additive",
       "reasoning": "加工デンナン adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:加工デンプ",
-      "names": ["加工デンプ"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "加工デンプ adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:加工テンブン",
-      "names": ["加工テンブン", "加工デンプン"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "加工テンブン adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -3056,28 +3034,6 @@
       "reviewed": true,
       "category": "colorant",
       "reasoning": "ムラサキイモ色素 adalah pewarna dari sumber nabati/mineral — halal.",
-      "sources": ["EFSA — pewarna", "LPPOM MUI — pewarna"]
-    },
-    {
-      "id": "exp:メル色素",
-      "names": ["メル色素"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "colorant",
-      "reasoning": "メル色素 adalah pewarna dari sumber nabati/mineral — halal.",
-      "sources": ["EFSA — pewarna", "LPPOM MUI — pewarna"]
-    },
-    {
-      "id": "exp:ロチノイド色素",
-      "names": ["ロチノイド色素"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "colorant",
-      "reasoning": "ロチノイド色素 adalah pewarna dari sumber nabati/mineral — halal.",
       "sources": ["EFSA — pewarna", "LPPOM MUI — pewarna"]
     },
     {
@@ -9700,17 +9656,6 @@
       "reviewed": true,
       "category": "sweetener",
       "reasoning": "アスパルチーム adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:アセスルファ",
-      "names": ["アセスルファ"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "sweetener",
-      "reasoning": "アセスルファ adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
