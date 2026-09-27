@@ -133,3 +133,32 @@ is recorded here per category.
   2-char forms can only be covered by substring rule patterns.
 - PaddleOCR dominates the remaining runtime (~3 s); it is CPU-bound
   preprocessing + inference. Forcing NNAPI did not help (see #11).
+
+## Device round 2026-09-27 (4 real camera scans, 7 verifier rounds)
+
+The first real camera scans found wrong verdicts that no synthetic test had
+produced. Every item below was reproduced by an independent verifier subagent
+and is pinned in scripts/smoke.ts.
+
+| Class | Example | Was | Now |
+|---|---|---|---|
+| Meat cut -> halal | 豚もも肉, 豚肩ロース | halal:rule:peach / exp:スクロース | haram:rule:pork / meat-cut |
+| Pork dish shadowed by halal sub-word | 豚の生姜焼き, 豚のりんご煮 | halal:rule:ginger / rule:seaweed | haram:rule:pork |
+| Katakana cut / dish -> no finding | 豚モモ肉, 鶏白湯, 煮豚, カツ丼 | green banner | haram/syubhat by rule |
+| Real meat line dropped | 製造用豚肉エキス, 豚肉工場製造 | no finding | haram:rule:pork |
+| Allergen line swallowed | 一部に豚肉を含む | no finding | haram:rule:pork |
+| Unreviewed OFF vegan -> green | catalog origin-signal halal | banner ok | effectiveStatus -> unknown |
+| Conflicting duplicate entry | 加工デンプン | halal (other entry) | syubhat:modified-starch |
+| OCR phrase misread | 添味料, カエでん粉, バーム油 | wrong/unknown | folded to 調味料/加工でん粉/パーム油 |
+| 3-char fuzzy too loose | レート -> ビート | halal | refused (short-term gate) |
+| Garbled allergen / soup row | 部仁卵乳成分小麦天豆肉, 水化物6.4大豆粉 | bogus halal | dropped as noise |
+| Catalog data bug | 633 "[object Object]" names/eNumbers | junk | regenerated clean |
+
+Non-claim wording is handled by NON_INGREDIENT_MENTION_RE (facility /
+possibility / negation) plus a mention-count rule: a token with ONE animal
+mention and a non-claim marker is dropped; anything else stays an ingredient
+claim so NOISE_RE cannot swallow it. Bare 使用/使った/製品 are positive claims.
+
+Metrics after the round: golden classification recall 83.7% (was 66.9%),
+unknown 16.3% (was 33.1%), verdict accuracy 86.3%, false-halal 0,
+false-haram 0; smoke ~990 assertions ALL PASS.
