@@ -394,6 +394,32 @@ export const CURATION_RULES: CurationRule[] = [
       'Shortening adalah lemak terhidrogenasi, bisa berbasis hewani (termasuk babi) atau nabati.',
     sources: [LPPOM, JAKIM],
   },
+  // Named plant/fermentation colourants are unambiguously halal. Placed BEFORE
+  // the generic flavoring/coloring rules: the generic 着色料/色素/香料 stay
+  // syubhat because an UNNAMED colourant can be animal/synthetic/insect-derived
+  // (e.g. コチニール色素), while a NAME tells us the source (caramel from sugar,
+  // paprika/vegetable/gardenia/annatto/beet/red-koji/carotenoid → plant or
+  // fermentation).
+  halalRule(
+    'named-colorant',
+    'Named colourant / 色素（名称あり）',
+    [
+      /カラメル色素/,
+      /パプリカ色素/,
+      /野菜色素/,
+      /クチナシ色素/,
+      /アナトー色素/,
+      /ビート色素/,
+      /紅麹色素/,
+      /ベニコウジ色素/,
+      /カロテノイド色素/,
+      /カロチノイド色素/,
+      /カロチン色素/,
+      /カロテン色素/,
+    ],
+    'colorant',
+    'Pewarna dengan nama sumber nabati/fermentasi (karamel, paprika, sayur, gardenia, annatto, bit, koji merah, karotenoid) — halal.'
+  ),
   {
     id: 'flavoring',
     label: 'Flavoring / 香料',
@@ -676,11 +702,41 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('nuts', 'Nuts / ナッツ', [/ナッツ/, /アーモンド/, /落花生/, /ピーナッツ/, /カシューナッツ/], 'plant', 'Kacang-kacangan, halal.'),
   halalRule('raisin', 'Raisin / レーズン', [/レーズン/], 'plant', 'Kismis, halal.'),
   halalRule('egg-white', 'Egg white / 卵白', [/卵白/], 'animal', 'Putih telur, halal.', 'medium'),
+  // Dough conditioner (イーストフード) is a compound additive whose typical
+  // members (L-cysteine, emulsifiers, enzymes) are source-dependent per §6.
+  // Placed BEFORE the yeast rule so /イースト/ does not grant it a bare halal.
+  {
+    id: 'yeast-food',
+    label: 'Yeast food / イーストフード',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    patterns: [/イーストフード/],
+    reasoning:
+      'イーストフード (dough conditioner) adalah campuran aditif; dapat memuat L-sistein, emulsifier, atau enzim yang sumbernya bisa hewani. Perlu verifikasi.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('yeast', 'Yeast / イースト', [/イースト/, /パン酵母/, /酵母粉末/], 'additive', 'Ragi, halal.'),
   halalRule('noodle', 'Noodle / 麺', [/中華麺/, /油揚げ/, /めん/, /麺/, /即席/], 'grain', 'Mi berbasis gandum, halal.'),
   halalRule('seaweed', 'Seaweed / 海藻', [/海藻/, /わかめ/, /昆布/, /のり/], 'plant', 'Rumput laut, halal.'),
   halalRule('mushroom', 'Mushroom / きのこ', [/きのこ/, /椎茸/, /しいたけ/, /エリンギ/, /しめじ/], 'plant', 'Jamur, halal.'),
   halalRule('konjac', 'Konjac / こんにゃく', [/こんにゃく/, /蒟蒻/], 'plant', 'Konnyaku, halal.'),
+  // Placed BEFORE the 豆腐 halal rule: 豆腐用凝固剤 CONTAINS 豆腐 but is a
+  // functional class, not tofu itself, so it must not inherit the 豆腐 verdict.
+  // Common tofu coagulants are mineral/acid (nigari/MgCl2, calcium sulfate,
+  // GDL), but the label does not name the agent, and 凝固剤 elsewhere (e.g.
+  // cheese) may be rennet/enzyme — source-dependent per §6 → syubhat.
+  {
+    id: 'tofu-coagulant',
+    label: 'Tofu coagulant / 豆腐用凝固剤',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    patterns: [/豆腐用凝固/, /豆腐凝固/],
+    reasoning:
+      'Agen penggumpal tahu umumnya mineral/asam (nigari/MgCl2, kalsium sulfat, GDL) yang halal, tetapi sebutan generik ini tidak menyebut agennya; 凝固剤 pada produk lain (mis. keju) bisa rennet/enzim hewani. Tanpa nama agen → syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('tofu', 'Tofu / 豆腐', [/豆腐/], 'plant', 'Tahu, halal.'),
   halalRule('chocolate', 'Chocolate / チョコ', [/チョコ/, /カカオマス/, /ココアバター/], 'plant', 'Cokelat; waspadai emulsifier/susu hewani.', 'low'),
   halalRule('biscuit', 'Biscuit / ビスケット', [/ビスケット/, /クッキー/, /ウエハース/, /ワッフル/], 'grain', 'Biskuit; waspadai shortening/margarin hewani.', 'low'),
@@ -752,7 +808,20 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('sweetener2', 'Sweetener / 甘味料', [/甘味料/], 'sweetener', 'Pemanis; umumnya halal, waspadai varian.', 'low'),
   halalRule('stabilizer', 'Stabilizer / 安定剤', [/安定剤/], 'additive', 'Penstabil; umumnya nabati/mikroba.', 'low'),
   halalRule('preservative2', 'Preservative / 保存料', [/保存料/], 'additive', 'Pengawet; umumnya halal (sorbat/benzoat).', 'low'),
-  halalRule('coagulant', 'Coagulant / 凝固剤', [/凝固剤/], 'additive', 'Koagulan (mineral/asam), halal.', 'low'),
+  // Halal coagulants exist (mineral salts/acids, e.g. nigari), but the bare
+  // functional class can also be rennet/enzyme (source-dependent per §6) and the
+  // label rarely names the agent, so the generic term is syubhat.
+  {
+    id: 'coagulant',
+    label: 'Coagulant / 凝固剤',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    patterns: [/凝固剤/],
+    reasoning:
+      'Koagulan generik (mis. pada tahu/keju) bisa mineral/asam (halal) atau rennet/enzim hewani. Tanpa nama agen, syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('flavor-oil', 'Flavour oil / 香味油', [/香味油/], 'fat', 'Minyak aroma; umumnya nabati.', 'low'),
   halalRule('dairy', 'Dairy / 乳製品', [/乳製品/, /乳由来/], 'dairy', 'Produk susu; halal, waspadai enzim.', 'low'),
   halalRule('condensed-milk', 'Condensed milk / 加糖練乳', [/加糖練乳/, /練乳/, /加糖れん乳/, /れん乳/], 'dairy', 'Susu kental manis, halal.', 'low'),

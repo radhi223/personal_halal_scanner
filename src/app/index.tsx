@@ -31,6 +31,12 @@ export default function HomeScreen() {
 
       <Pressable
         style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+        onPress={() => router.push('/search')}>
+        <Text style={styles.secondaryText}>Cari Bahan</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
         onPress={() => router.push('/disclaimer')}>
         <Text style={styles.secondaryText}>Disclaimer &amp; Cara Pakai</Text>
       </Pressable>

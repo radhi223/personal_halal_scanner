@@ -14,6 +14,7 @@ import { FORBIDDEN_CHEAP_PAIRS, substitutionCost } from '@/lib/confusion';
 import { similarity, weightedSimilarity } from '@/lib/levenshtein';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
 import { CURATION_RULES, matchRule } from '@/lib/rules';
+import { searchIngredients } from '@/lib/search';
 import { computeVerdictBanner } from '@/lib/verdict';
 import {
   extractCandidates,
@@ -398,6 +399,78 @@ const midLine = {
 const midCrop = computeIngredientCrop(midLine, 1000, 2000);
 check('crop keeps ingredient line with たんぱく質', midCrop?.rect.height, 138);
 check('crop stops at real boundary', midCrop?.boundaryText, '栄養成分表示 100g当り');
+
+// 21b. GAP-1 follow-up: the crop must absorb list lines that wrapped BEFORE the
+// 原材料名 marker (same backwards rule as extractIngredientSection). Otherwise
+// those leading ingredients are cut away on device before OCR ever sees them.
+// 名称 / 種類別 metadata lines still stop absorption.
+const wrappedList = {
+  text: '',
+  blocks: [
+    {
+      text: '',
+      lines: [
+        { text: '名称ピザパン', frame: { top: 40, left: 0, width: 300, height: 30 } },
+        { text: '小麦粉（国内製造）、砂糖、', frame: { top: 80, left: 0, width: 500, height: 40 } },
+        { text: 'マヨネーズ、ハム', frame: { top: 120, left: 0, width: 400, height: 40 } },
+        { text: '原材料名 プン、乳化剤、調味料', frame: { top: 160, left: 0, width: 500, height: 40 } },
+        { text: '栄養成分表示 熱量393kcal', frame: { top: 220, left: 0, width: 400, height: 40 } },
+      ],
+    },
+  ],
+} as any;
+const wrappedCrop = computeIngredientCrop(wrappedList, 1000, 2000);
+check('[gap1-crop] mid-list header absorbs wrapped list lines', wrappedCrop?.rect.originY, 56);
+check(
+  '[gap1-crop] crop starts at/above first absorbed line',
+  (wrappedCrop?.rect.originY ?? 999) <= 80,
+  true
+);
+check(
+  '[gap1-crop] crop does not swallow product-name line',
+  (wrappedCrop?.rect.originY ?? 0) > 40,
+  true
+);
+check('[gap1-crop] crop height covers absorbed lines', wrappedCrop?.rect.height, 168);
+check('[gap1-crop] absorbed lines counted in diagnostic', wrappedCrop?.lines, 3);
+
+const cropNameOnly = {
+  text: '',
+  blocks: [
+    {
+      text: '',
+      lines: [
+        { text: '名称ピザパン', frame: { top: 40, left: 0, width: 300, height: 30 } },
+        { text: '原材料名 プン、乳化剤', frame: { top: 100, left: 0, width: 500, height: 40 } },
+        { text: '栄養成分表示', frame: { top: 160, left: 0, width: 300, height: 40 } },
+      ],
+    },
+  ],
+} as any;
+check(
+  '[gap1-crop] 名称 line NOT absorbed (crop starts at header)',
+  computeIngredientCrop(cropNameOnly, 1000, 2000)?.rect.originY,
+  76
+);
+
+const cropTypeOnly = {
+  text: '',
+  blocks: [
+    {
+      text: '',
+      lines: [
+        { text: '種類別: プロセスチーズ', frame: { top: 40, left: 0, width: 400, height: 30 } },
+        { text: '原材料名 ナチュラルチーズ、乳化剤', frame: { top: 100, left: 0, width: 500, height: 40 } },
+        { text: '栄養成分表示', frame: { top: 160, left: 0, width: 300, height: 40 } },
+      ],
+    },
+  ],
+} as any;
+check(
+  '[gap1-crop] 種類別 line NOT absorbed (crop starts at header)',
+  computeIngredientCrop(cropTypeOnly, 1000, 2000)?.rect.originY,
+  76
+);
 
 // 22. Truncated-first-char OCR variants (seen after hybrid crop passes).
 const s12 = analyzeLayered(
@@ -1235,6 +1308,320 @@ check('[fix42] 小麦粉 -> halal', verdict30('小麦粉').status, 'halal');
 check('[fix42] 豚肉 -> haram', verdict30('豚肉').status, 'haram');
 check('[fix42] アミノ酸等 -> halal', verdict30('アミノ酸等').status, 'halal');
 check('[fix42] ミノ酸等 -> halal', verdict30('ミノ酸等').status, 'halal');
+
+// 43. Offline ingredient search (search.ts). The verdict for a typed token
+// must be identical to a scan of the same token (layered: curated exact >
+// rule > fuzzy curated > catalog), and catalog hits must NEVER surface as a
+// verdict — the vegan origin-signal "halal" candidate in particular.
+const S = (q: string, limit = 30) =>
+  searchIngredients(getCuratedIndex(), getCatalogIndex(), q, limit);
+
+const gelatin43 = S('ゼラチン');
+check('[search] ゼラチン top layer curated', gelatin43.hits[0]?.layer, 'curated');
+check('[search] ゼラチン top id gelatin', gelatin43.hits[0]?.entry.id, 'gelatin');
+check('[search] ゼラチン top status syubhat', gelatin43.hits[0]?.status, 'syubhat');
+check('[search] ゼラチン exact', gelatin43.hits[0]?.kind, 'exact');
+check('[search] ゼラチン matched alias', gelatin43.hits[0]?.matchedTerm, 'ゼラチン');
+check('[search] ゼラチン total', gelatin43.total, 1);
+
+const emulsifier43 = S('乳化剤');
+check('[search] 乳化剤 top id emulsifier', emulsifier43.hits[0]?.entry.id, 'emulsifier');
+check('[search] 乳化剤 top status syubhat', emulsifier43.hits[0]?.status, 'syubhat');
+
+const mirin43 = S('みりん');
+check('[search] みりん top id mirin', mirin43.hits[0]?.entry.id, 'mirin');
+check('[search] みりん top status syubhat', mirin43.hits[0]?.status, 'syubhat');
+
+const e120Search = S('E120');
+check('[search] E120 top id ecode:E120', e120Search.hits[0]?.entry.id, 'ecode:E120');
+check('[search] E120 top status syubhat', e120Search.hits[0]?.status, 'syubhat');
+
+const e100Search = S('E100');
+check('[search] E100 top id ecode:E100', e100Search.hits[0]?.entry.id, 'ecode:E100');
+check('[search] E100 top status halal', e100Search.hits[0]?.status, 'halal');
+
+const nonsense43 = S('謎の物質XYZ');
+check('[search] nonsense -> no hits', nonsense43.hits.length, 0);
+check('[search] nonsense total 0', nonsense43.total, 0);
+
+// Catalog-only name クスクス. The raw catalog entry carries a vegan
+// origin-signal mapped to status 'halal'; search must display 'unknown'.
+const couscous43 = S('クスクス');
+check('[search] catalog-only layer catalog', couscous43.hits[0]?.layer, 'catalog');
+check('[search] catalog-only entry id', couscous43.hits[0]?.entry.id, 'catalog:couscous');
+check('[search] catalog-only entry has vegan halal candidate', couscous43.hits[0]?.entry.status, 'halal');
+check('[search] catalog-only display status unknown', couscous43.hits[0]?.status, 'unknown');
+
+// Fuzzy agreement with the scan matcher.
+const fuzzy43 = S('ゼラチソ'); // ソ instead of ン
+check('[search] fuzzy typo -> gelatin', fuzzy43.hits[0]?.entry.id, 'gelatin');
+check('[search] fuzzy kind', fuzzy43.hits[0]?.kind, 'fuzzy');
+
+// Prefix browse aid + limit/total accounting.
+const prefix43 = S('ゼラ');
+check(
+  '[search] prefix suggests ゼラチン',
+  prefix43.hits.some((h) => h.entry.id === 'gelatin' && h.kind === 'prefix'),
+  true
+);
+const limited43 = S('E', 5);
+check('[search] limit caps returned hits', limited43.hits.length, 5);
+check('[search] total counts all matches', limited43.total > 5, true);
+check('[search] truncated flag', limited43.truncated, true);
+
+const blank43 = S('   ');
+check('[search] blank query -> no hits', blank43.total, 0);
+
+// 44. Golden-set fixes (docs/VALIDATION_GOLDENSET.md): named plant colourants
+// are halal while generic 着色料/香料 stay syubhat, 豆腐用凝固剤 no longer
+// inherits the 豆腐 halal through the compound term, the golden-set DATA-GAPs
+// get curated verdicts (or a cautious one), and merged OCR-soup tokens are
+// dropped before matching.
+check(
+  '[goldenset] OCR soup token is label noise',
+  isLabelNoise(normalize('豆腐用凝固 部含 熱量78kca一蛋 牛')),
+  true
+);
+check(
+  '[goldenset] OCR soup token yields no halal verdict',
+  analyzeLayered(
+    getCuratedIndex(),
+    getCatalogIndex(),
+    '豆腐用凝固 部含 熱量78kca一蛋 牛'
+  ).some((f) => f.match?.entry.status === 'halal'),
+  false
+);
+// Guard must NOT drop normal long ingredient names (esp. alcohol-safety tokens).
+for (const keep of [
+  '植物油脂粉末調味料酒',
+  'たん白加水分解物',
+  '粉末状大豆たん白',
+  '酵母エキスパウダー',
+  'ミックス粉',
+]) {
+  check(`[goldenset] not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
+}
+check(
+  '[goldenset] 植物油脂粉末調味料酒 still syubhat (alcohol rule intact)',
+  verdict30('植物油脂粉末調味料酒').status,
+  'syubhat'
+);
+
+check('[goldenset] 豆腐 -> halal', verdict30('豆腐').status, 'halal');
+check('[goldenset] 豆腐 rule id', verdict30('豆腐').id, 'rule:tofu');
+check('[goldenset] 豆腐用凝固剤 -> syubhat', verdict30('豆腐用凝固剤').status, 'syubhat');
+check(
+  '[goldenset] 豆腐用凝固剤 rule id',
+  verdict30('豆腐用凝固剤').id,
+  'rule:tofu-coagulant'
+);
+check('[goldenset] 凝固剤 -> syubhat (could be rennet/enzyme)', verdict30('凝固剤').status, 'syubhat');
+check('[goldenset] 凝固剤 rule id', verdict30('凝固剤').id, 'rule:coagulant');
+
+const NAMED_COLORANTS: [string, string][] = [
+  ['カラメル色素', 'halal'],
+  ['パプリカ色素', 'halal'],
+  ['野菜色素', 'halal'],
+  ['クチナシ色素', 'halal'],
+  ['アナトー色素', 'halal'],
+  ['ビート色素', 'halal'],
+  ['紅麹色素', 'halal'],
+  ['カロテノイド色素', 'halal'],
+  ['カロチノイド色素', 'halal'],
+  ['カロチン色素', 'halal'],
+  ['ベニコウジ色素', 'halal'],
+];
+for (const [raw, status] of NAMED_COLORANTS) {
+  check(`[goldenset] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[goldenset] named colourant rule id', verdict30('カラメル色素').id, 'rule:named-colorant');
+check('[goldenset] 着色料 still syubhat', verdict30('着色料').status, 'syubhat');
+check('[goldenset] 色素 still syubhat', verdict30('色素').status, 'syubhat');
+check('[goldenset] 香料 still syubhat', verdict30('香料').status, 'syubhat');
+check('[goldenset] コチニール色素 still syubhat', verdict30('コチニール色素').status, 'syubhat');
+check('[goldenset] 乳化剤 still syubhat', verdict30('乳化剤').status, 'syubhat');
+
+check('[goldenset] リン酸塩 -> halal', verdict30('リン酸塩').status, 'halal');
+check('[goldenset] 生クリーム -> halal', verdict30('生クリーム').status, 'halal');
+check('[goldenset] 大豆水煮 -> halal', verdict30('大豆水煮').status, 'halal');
+check('[goldenset] 酢酸Na -> halal', verdict30('酢酸Na').status, 'halal');
+check('[goldenset] しいたけ -> halal', verdict30('しいたけ').status, 'halal');
+check('[goldenset] しいたけだし -> halal', verdict30('しいたけだし').status, 'halal');
+check('[goldenset] 加工デンプン -> halal', verdict30('加工デンプン').status, 'halal');
+check(
+  '[goldenset] 加工デンプン curated id',
+  verdict30('加工デンプン').id,
+  'exp:加工テンブン'
+);
+check(
+  '[goldenset] イーストフード -> syubhat (dough conditioner)',
+  verdict30('イーストフード').status,
+  'syubhat'
+);
+check(
+  '[goldenset] イーストフード rule id',
+  verdict30('イーストフード').id,
+  'rule:yeast-food'
+);
+check('[goldenset] パン酵母 still halal', verdict30('パン酵母').status, 'halal');
+
+// 45. GAP-1 EXTRACT-GAP: 原材料名 is often detected AFTER the list already
+// started (OCR reading order on two-column panels; PaddleOCR's `flatten:true`
+// joins all OCR lines, so the whole leading list sits before the marker).
+// `extractIngredientSection` now absorbs the list-like prefix. The fixture is
+// the REAL flattened PaddleOCR text of personal/fldb_4902410315353_label.jpg
+// (the worst image in docs/VALIDATION_GOLDENSET.md: 14 leading ingredients,
+// incl. ハム/チーズ, were silently dropped).
+const FLD_4902410315353_OCR =
+  '名称菜パン 小麦粉(国内 造）、ピザソ一ス、マヨ 一ズ味 レシ 、タマ 、砂糖、 一ズ、、卵、 マ一ガリン、パン酵母、ショートニング、ぶどう糖、乳等を主要原料とする食品、食塩/加エデ 原材料名 プン、乳化剂、調味料(有機酸等)、酢酸Na、增粘多糖類、イ一ストフ一ド、リ 酸塩(Na)、pH 調整剂、<ん液、酸化防止剤(V.C)、着色料(クチナシ、カロチノイド)、V.C、発色剤(亜硝酸 Na)、香辛料、（一部(に卵·乳成分·小麦·大豆·鶏肉·豚肉を含む） 内容量1個消費期限表面に記载保存方法直射日光、高温多湿を避けて保存してください。 パ 株 式会 社 467-8651名古屋市瑞穗区松園町1-50 ★製造所固有記号は消費期限の下に記載 ●本品製造ラインでは落花生・くるみを含む製品を生産しています。';
+
+const fldSection = extractIngredientSection(FLD_4902410315353_OCR);
+check('[gap1] fldb_4902410315353 section starts at leading list', fldSection.startsWith('小麦粉'), true);
+check('[gap1] fldb_4902410315353 keeps post-marker list', fldSection.includes('プン、乳化剂'), true);
+check('[gap1] fldb_4902410315353 drops product-name line', fldSection.includes('名称'), false);
+check(
+  '[gap1] fldb_4902410315353 recovers 砂糖/食塩/ショートニング/ぶどう糖',
+  ['砂糖', '食塩', 'ショートニング', 'ぶどう糖'].every((t) => fldSection.includes(t)),
+  true
+);
+const fldFind = new Map(
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), fldSection)
+    .filter((f) => f.match)
+    .map((f) => [f.normalized, f.match!])
+);
+check('[gap1] recovered 小麦粉 -> halal', fldFind.get(normalize('小麦粉'))?.entry.status, 'halal');
+check('[gap1] recovered 食塩 -> halal', fldFind.get(normalize('食塩'))?.entry.status, 'halal');
+check('[gap1] recovered ショートニング -> syubhat', fldFind.get(normalize('ショートニング'))?.entry.status, 'syubhat');
+check('[gap1] recovered ぶどう糖 -> halal', fldFind.get(normalize('ぶどう糖'))?.entry.status, 'halal');
+check('[gap1] split 加工デンプン rejoined', fldFind.get(normalize('加エデ プン'))?.entry.id, 'exp:加工テンブン');
+// ハム itself is absent from this OCR run: PaddleOCR dropped the token between
+// チーズ and 卵 (the printed list is …砂糖、チーズ、ハム、卵…, so the OCR shows
+// "…砂糖、 一ズ、、卵…"). No extractor can invent a token the OCR never
+// emitted. Restoring the human-verified ハム into the SAME real text proves the
+// fixed extractor keeps it where the old one lost the whole leading list, and
+// the matcher returns the high-stakes haram verdict.
+check(
+  '[gap1] fldb_4902410315353 OCR itself never emitted ハム (separate OCR gap)',
+  FLD_4902410315353_OCR.includes('ハム'),
+  false
+);
+const fldRestored = extractIngredientSection(
+  FLD_4902410315353_OCR.replace('一ズ、、卵', '一ズ、ハム、卵')
+);
+check('[gap1] restored ハム survives extraction', fldRestored.includes('ハム'), true);
+check(
+  '[gap1] restored ハム -> haram',
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), fldRestored).find(
+    (f) => f.normalized === normalize('ハム')
+  )?.match?.entry.status,
+  'haram'
+);
+
+// Multi-line OCR shape (ML Kit): the marker line is preceded by list lines.
+const LEAD_LIST = `名称 惣菜パン
+小麦粉（国内製造）、ピザソース、
+マヨネーズ味ドレッシング、タマネギ、砂糖、チーズ、
+ハム、卵、マーガリン
+原材料名 パン酵母、ショートニング、ぶどう糖
+栄養成分表示 熱量 393kcal`;
+const leadSection = extractIngredientSection(LEAD_LIST);
+check('[gap1] multi-line section starts before marker', leadSection.startsWith('小麦粉'), true);
+check('[gap1] multi-line section keeps ハム', leadSection.includes('ハム'), true);
+check('[gap1] multi-line section drops 名称', leadSection.includes('名称'), false);
+check('[gap1] multi-line section stops at nutrition', leadSection.includes('栄養成分'), false);
+const leadFind = analyzeLayered(getCuratedIndex(), getCatalogIndex(), leadSection);
+check(
+  '[gap1] multi-line ハム -> haram',
+  leadFind.find((f) => f.normalized === normalize('ハム'))?.match?.entry.status,
+  'haram'
+);
+check(
+  '[gap1] multi-line 小麦粉 -> halal',
+  leadFind.find((f) => f.normalized === normalize('小麦粉'))?.match?.entry.status,
+  'halal'
+);
+
+// Negative guards: the product-name block and the 種類別 field are metadata,
+// not list continuation, and must never be absorbed.
+const PRODUCT_NAME = `名称ー菓子パン
+ダブルチョコロール*
+原材料名 チョコレート利用食品（国内製造）、小麦粉
+栄養成分表示 熱量 1kcal`;
+const pnSection = extractIngredientSection(PRODUCT_NAME);
+check('[gap1] product name not swallowed', pnSection.startsWith('チョコレート利用食品'), true);
+check('[gap1] product-name continuation not swallowed', pnSection.includes('ダブルチョコロール'), false);
+
+const TYPE_FIELD = `種類別: プロセスチーズ
+原材料名 ナチュラルチーズ（外国製造）、乳化剤
+栄養成分表示 熱量 1kcal`;
+const tfSection = extractIngredientSection(TYPE_FIELD);
+check('[gap1] 種類別 line not swallowed', tfSection.startsWith('ナチュラルチーズ'), true);
+check('[gap1] 種類別 value not in section', tfSection.includes('プロセスチーズ'), false);
+
+// 46. GAP-2 DEDUPE-GAP: collapse() now dedupes by normalized surface form, not
+// by entry id, so different ingredients that share a database entry all show.
+const gap2 = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '牛脂豚脂混合油脂、牛脂、香辛料、香辛料抽出物、砂糖混合ぶどう糖果糖液糖、果糖ぶどう糖液糖'
+);
+const gap2Raw = new Set(gap2.filter((f) => f.match).map((f) => f.raw));
+check('[gap2] 牛脂 survives next to 牛脂豚脂混合油脂', gap2Raw.has('牛脂'), true);
+check('[gap2] 香辛料抽出物 survives next to 香辛料', gap2Raw.has('香辛料抽出物'), true);
+check(
+  '[gap2] 果糖ぶどう糖液糖 survives next to 砂糖混合ぶどう糖果糖液糖',
+  gap2Raw.has('果糖ぶどう糖液糖'),
+  true
+);
+check(
+  '[gap2] longer siblings still survive',
+  ['牛脂豚脂混合油脂', '香辛料', '砂糖混合ぶどう糖果糖液糖'].every((t) => gap2Raw.has(t)),
+  true
+);
+const gap2ByRaw = new Map(gap2.filter((f) => f.match).map((f) => [f.raw, f.match!]));
+check('[gap2] 牛脂豚脂混合油脂 -> haram', gap2ByRaw.get('牛脂豚脂混合油脂')?.entry.status, 'haram');
+check('[gap2] 牛脂 -> syubhat', gap2ByRaw.get('牛脂')?.entry.status, 'syubhat');
+check('[gap2] 香辛料抽出物 -> halal', gap2ByRaw.get('香辛料抽出物')?.entry.status, 'halal');
+check('[gap2] 果糖ぶどう糖液糖 -> halal', gap2ByRaw.get('果糖ぶどう糖液糖')?.entry.status, 'halal');
+// Same surface form is still collapsed to one card (no duplicate explosion).
+const sameWord = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '砂糖、砂糖、食塩、食塩');
+check(
+  '[gap2] identical form appears once (sugar)',
+  sameWord.filter((f) => f.normalized === normalize('砂糖')).length,
+  1
+);
+check(
+  '[gap2] identical form appears once (salt)',
+  sameWord.filter((f) => f.normalized === normalize('食塩')).length,
+  1
+);
+
+// 46b. Same entry id, different surface forms: collapse() dedupes by normalized
+// form, so both must survive and each render its own result card.
+const sharedEntry = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '牛脂、香辛料抽出物');
+check(
+  '[gap2] two rule-matched findings both survive',
+  sharedEntry.filter((f) => f.match).length,
+  2
+);
+const sameIdPair = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  '香辛料、香辛料抽出物'
+);
+const sameIdMatched = sameIdPair.filter((f) => f.match);
+check('[gap2] same-id pair yields 2 findings', sameIdMatched.length, 2);
+check(
+  '[gap2] same-id pair really shares one entry',
+  new Set(sameIdMatched.map((f) => f.match!.entry.id)).size,
+  1
+);
+const sameIdRaw = new Set(sameIdMatched.map((f) => f.raw));
+check(
+  '[gap2] same-id pair keeps both raw forms',
+  sameIdRaw.has('香辛料') && sameIdRaw.has('香辛料抽出物'),
+  true
+);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

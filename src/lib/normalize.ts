@@ -63,13 +63,73 @@ const SECTION_STOP =
 /** A line that is basically just a barcode / long digit run. */
 const DIGITS_LINE = /^[\d\s\-ー－]{8,}$/;
 
+/** Characters that end an ingredient item in the list. */
+const LIST_SEPARATOR = /[、，,・/／]/;
+
+/**
+ * Metadata that must also end BACKWARD absorption (see absorbLeadingPrefix):
+ * SECTION_STOP plus 種類別, whose value ("種類別: プロセスチーズ") is product
+ * type, not list continuation, even though it is not a forward stop marker.
+ */
+const ABSORB_STOP = new RegExp(`(?:${SECTION_STOP.source}|種類別)`);
+
+/**
+ * Recover the leading ingredient list when the 原材料名 marker is found AFTER
+ * the list has already started. Real labels (and PaddleOCR's flattened output,
+ * which joins OCR lines with spaces) do this often: OCR reads the two-column
+ * panel in an order where 小麦粉、ピザソース… lands before the header. The
+ * first real-image golden set showed the old "start AT the marker" rule
+ * silently dropping 14 items on fldb_4902410315353 (incl. ハム/チーズ).
+ *
+ * `pieces` are the OCR lines the marker was preceded by, followed by the
+ * whitespace-split run before the marker on its own line. Walk backwards and
+ * keep a piece when it is list-like:
+ *   - it contains a list separator (、，,・/). Once one is seen the run is
+ *     "anchored", and separator-free wrapped fragments before it are kept too
+ *     (「食」+「塩」->「食塩」, 「マヨネー」+「ズ」->「マヨネーズ」).
+ *   - before anchoring, a separator-free piece is kept only when the piece in
+ *     front of it is list-like (a wrapped word such as 「レシ」 before
+ *     「…ピザソ一ス、マヨ」).
+ * Absorption stops at the first metadata piece (名称/品名/種類別/栄養成分/…),
+ * so the product-name line and the nutrition block are never swallowed.
+ */
+function absorbLeadingPrefix(pieces: string[]): string {
+  let keepFrom = pieces.length;
+  let anchored = false;
+  for (let i = pieces.length - 1; i >= 0; i--) {
+    const piece = pieces[i];
+    if (!piece) continue;
+    if (ABSORB_STOP.test(piece)) break;
+    if (LIST_SEPARATOR.test(piece)) {
+      anchored = true;
+      keepFrom = i;
+      continue;
+    }
+    if (anchored) {
+      keepFrom = i;
+      continue;
+    }
+    let prev = i - 1;
+    while (prev >= 0 && !pieces[prev]) prev--;
+    if (prev >= 0 && !ABSORB_STOP.test(pieces[prev]) && LIST_SEPARATOR.test(pieces[prev])) {
+      keepFrom = i;
+      continue;
+    }
+    break;
+  }
+  return pieces.slice(keepFrom).filter(Boolean).join(' ');
+}
+
 /**
  * Isolate the 原材料名 (ingredient list) section from a full-label OCR blob.
  *
  * Photos usually capture the whole pack (product name, price, dates, nutrition,
  * maker, barcode). Matching against all of that is noisy, so we take only the
  * ingredient list. Lines are rejoined with NO separator because OCR wraps words
- * mid-ingredient (e.g. "マヨネー" + "ズ" -> "マヨネーズ").
+ * mid-ingredient (e.g. "マヨネー" + "ズ" -> "マヨネーズ"). The (flattened)
+ * leading run recovered by absorbLeadingPrefix is space-joined instead so
+ * separate OCR pieces stay separate; normalize() drops the spaces before
+ * matching, so wrapped words still reassemble.
  *
  * Falls back to the full text when no 原材料名 marker is found.
  */
@@ -86,13 +146,22 @@ export function extractIngredientSection(text: string): string {
   }
   if (start === -1) return text;
 
-  let collected = '';
+  // Recover ingredients listed before the marker: whole preceding OCR lines,
+  // then the run before the marker on the marker line itself (which holds the
+  // rest of the flattened text when the OCR service used `flatten: true`).
+  const markerAt = lines[start].search(SECTION_START);
+  const pieces: string[] = [];
+  for (let i = 0; i < start; i++) pieces.push(lines[i]);
+  for (const fragment of lines[start].slice(0, markerAt).split(/\s+/)) pieces.push(fragment);
+  const leading = absorbLeadingPrefix(pieces);
+
+  let collected = leading ? `${leading} ` : '';
   for (let i = start; i < lines.length; i++) {
     let line = lines[i];
     if (i === start) {
-      // Drop everything up to and including the marker, so OCR garbage before it
-      // (e.g. "所材料名") is discarded too.
-      line = line.replace(/^.*?(原材料名|原材料|原料名|原材名|材料名|材料|料名)/, '');
+      // Drop only everything up to and including the marker, so OCR garbage
+      // before it (e.g. "所材料名") is discarded and the list after it is kept.
+      line = line.slice(markerAt).replace(SECTION_START, '');
     } else if (SECTION_STOP.test(line) || DIGITS_LINE.test(line.trim())) break;
     // Strip leading OCR noise (table borders / stray latin) on wrapped lines so
     // "|ズ" joins back onto the previous "マヨネー".
@@ -101,7 +170,7 @@ export function extractIngredientSection(text: string): string {
   }
 
   // Drop allergen notes like "(一部に卵・乳成分・小麦・大豆・…を含む)".
-  collected = collected.replace(/[(（][^()（）]*(含む|含まれ)[^()（）]*[)）]/g, ' ');
+  collected = collected.replace(/[(（][^()（）]*(含む|含まれ)[^()（）]*[)（）]/g, ' ');
   return collected.replace(/^[、,\s。]+/, '').trim();
 }
 
@@ -176,14 +245,38 @@ const NOISE_EXACT = new Set(
  *    レンジ inside フリーレンジ卵.
  */
 const NOISE_RE =
-  /(税込|税抜|kcal|カロリー|製造|工場|株式会社|を含む|含まれ|不使用|無添加|フリー$|不含|一部に|賞味|期限|保存方法|栄養成分|たんばく質|タンパク質|脂質|炭水化物|食塩相当量|推定値|お問い合わせ|電話|原産|内容量|名称|品名|アレルギー|特定原材|注意|ください|目安|受付|発売元|製造元|造者|調理|加熱|(?<!フリー)レンジ|ハサミ|直射日光|高温多湿|ごみ|区分|記載|標準|存方法|エネルギー|原材|賞味期限|ます|です|外装|個包装|固包装|包装|パッケージ|画像|常温|高温|輸入者|販売元|南洋元|置いて|できま|トレイ|ハサミ|場合|一部|万全|不都合|本品|造場|表示値|表示值|インドネシ|保存法|タイ製造|発壳元|相談室|窓口|外袋|内袋|個装|枠外|記載|記勤|時簡|養成分|たんばく|たんはく|表目|前面|上部|国内製造|外国製造|遺伝子組換え|分別生産|生豆生産国|その他|産$|国$|国産|成分表示|ばく質|はく質|におい|合わせ先|合わ先|输入者|れません|灰水化物|熟量|表示|相当量|品質|材名|要冷蔵|要冷凍|風味原料)/;
+  /(税込|税抜|kcal|カロリー|製造|工場|株式会社|を含む|含まれ|不使用|無添加|フリー$|不含|一部に|賞味|期限|保存方法|栄養成分|たんばく質|タンパク質|脂質|炭水化物|食塩相当量|推定値|お問い合わせ|電話|原産|内容量|名称|品名|アレルギー|特定原材|注意|ください|目安|受付|発売元|製造元|造者|調理|加熱|(?<!フリー)レンジ|ハサミ|直射日光|高温多湿|ごみ|区分|記載|標準|存方法|エネルギー|原材|賞味期限|ます|です|外装|個包装|固包装|包装|パッケージ|画像|常温|高温|輸入者|販売元|南洋元|置いて|できま|トレイ|ハサミ|場合|一部|万全|不都合|本品|造場|表示値|表示值|インドネシ|保存法|タイ製造|発壳元|相談室|窓口|外袋|内袋|個装|枠外|記載|記勤|時簡|養成分|たんばく|たんはく|表目|前面|上部|国内製造|外国製造|遺伝子組換え|分別生産|生豆生産国|その他|産$|国$|国産|成分表示|ばく質|はく質|におい|合わせ先|合わ先|输入者|れません|灰水化物|熟量|熱量|表示|相当量|品質|材名|要冷蔵|要冷凍|風味原料)/;
 
 /** Address / company / contact boilerplate (structural, not label-specific). */
 const ADDRESS_RE =
   /(〒|tel|fax|電話|株式会社|有限会社|㈱|郵便|都|道|府|県|市|区|町|村|丁目|番地|番|号|通り|ビル)/;
 
 /** Measurement units — only treated as noise when the token also has digits. */
-const UNIT_RE = /(kcal|kg|mg|ml|cm|mm|グラム|キロ|ミリ|%|個|袋|本|枚|g)/;
+const UNIT_RE = /(kca[l1i]?|kg|mg|ml|cm|mm|グラム|キロ|ミリ|%|個|袋|本|枚|g)/;
+
+/**
+ * OCR-soup guard. Merged tokens glue ingredient stems to a nutrition row or
+ * measurement (e.g. "豆腐用凝固 部含 熱量78kca一蛋 牛"). Real ingredient names
+ * never contain a nutrition word plus a number, so:
+ *  - a digit is ALWAYS required (this keeps normal long compounds like
+ *    植物油脂粉末調味料酒, たん白加水分解物 and 粉末状大豆たん白 untouched);
+ *  - then either a nutrition fragment or ≥3 distinct food-class stems marks
+ *    the token as several unrelated things glued together.
+ * Deliberately conservative: length < 8 is never touched.
+ */
+const NUTRITION_IN_TOKEN_RE =
+  /(熱量|カロリー|kcal|kca|エネルギー|たんぱく質|たん白質|脂質|炭水化物|食塩相当量)/;
+/** Distinct food-class stems; ≥3 in one numbered token = several foods glued. */
+const FOOD_STEM_RE =
+  /(肉|魚|卵|乳|豆|麦|米|糖|塩|油|酢|酒|粉|茶|果|菜|エキス|たん白|蛋白|デンプン|でん粉|ビタミン|ミネラル)/g;
+
+function isOcrSoup(normalized: string): boolean {
+  if (normalized.length < 8) return false;
+  if (!/\d/.test(normalized)) return false;
+  if (NUTRITION_IN_TOKEN_RE.test(normalized)) return true;
+  const stems = new Set(normalized.match(FOOD_STEM_RE) ?? []);
+  return stems.size >= 3;
+}
 
 /** True if a text line looks like the ingredient-list header (原材料名 variants). */
 export function isIngredientHeader(text: string): boolean {
@@ -215,6 +308,7 @@ export function isLabelNoise(normalized: string): boolean {
   if (NOISE_RE.test(normalized)) return true;
   if (ADDRESS_RE.test(normalized)) return true;
   if (/\d/.test(normalized) && UNIT_RE.test(normalized)) return true;
+  if (isOcrSoup(normalized)) return true;
   if (/^[¥￥$]?\d/.test(normalized)) return true; // prices / quantities / dates
   if (/^\d+$/.test(normalized)) return true;
   return false;

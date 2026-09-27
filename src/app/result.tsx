@@ -117,7 +117,14 @@ export default function ResultScreen() {
       )}
 
       {matched.map((finding) => (
-        <FindingCard key={finding.match!.entry.id} finding={finding} sid={scan.sid} />
+        // Key by surface form, not entry id: two different ingredients can
+        // resolve to the same entry (collapse() dedupes by normalized form),
+        // and each must keep its own card and feedback button state.
+        <FindingCard
+          key={`${finding.match!.entry.id}:${finding.normalized}`}
+          finding={finding}
+          sid={scan.sid}
+        />
       ))}
 
       {unmatched.length > 0 && (

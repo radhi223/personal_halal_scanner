@@ -1069,7 +1069,7 @@
     },
     {
       "id": "exp:加工テンブン",
-      "names": ["加工テンブン"],
+      "names": ["加工テンブン", "加工デンプン"],
       "status": "halal",
       "confidence": "medium",
       "basis": "cross-source",
@@ -10108,6 +10108,72 @@
       "category": "sweetener",
       "reasoning": "黒蜜 adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "shiitake",
+      "names": ["しいたけ", "椎茸", "シイタケ", "しいたけだし"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "fiqh-rule",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Jamur shiitake dan kaldu shiitake (nabati) — halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "boiled-soybean",
+      "names": ["大豆水煮", "水煮大豆"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "fiqh-rule",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Kedelai rebus (nabati) — halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "fresh-cream",
+      "names": ["生クリーム"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "fiqh-rule",
+      "reviewed": true,
+      "category": "dairy",
+      "reasoning": "Krim susu segar — halal; waspadai rennet/enzim atau whey pada produk olahannya (lihat keju/rennet).",
+      "sources": ["LPPOM MUI — turunan susu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "sodium-acetate",
+      "names": ["酢酸Na", "酢酸ナトリウム"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Natrium asetat (garam asam asetat, sumber mineral/sintetis) — halal.",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "phosphate-salts",
+      "names": ["リン酸塩", "リン酸塩（Na）", "リン酸Na", "リン酸ナトリウム"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Garam fosfat (mineral) — halal.",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "carotenoid-color",
+      "names": ["カロテノイド色素", "カロチノイド色素", "カロチン色素"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "fiqh-rule",
+      "reviewed": true,
+      "category": "colorant",
+      "reasoning": "Pewarna karotenoid (nabati: wortel/tomat/paprika) — halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
     }
   ]
 }

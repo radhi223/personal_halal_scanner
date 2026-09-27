@@ -138,29 +138,34 @@ export function matchTerm(index: IngredientIndex, raw: string): MatchResult | nu
   return matchNormalized(index, normalize(raw));
 }
 
-/** Collapse findings so each matched entry appears once (best score wins). */
+/**
+ * Collapse findings for display.
+ *
+ * Dedupe is keyed on the NORMALIZED SURFACE FORM, not on the matched entry id.
+ * Two DIFFERENT ingredients on one label often resolve to the same entry
+ * (牛脂 + 牛脂豚脂混合油脂 -> rule:pork/rule:beef, 香辛料 + 香辛料抽出物 ->
+ * rule:spices, 砂糖混合ぶどう糖果糖液糖 + 果糖ぶどう糖液糖 -> rule:liquid-sugar)
+ * and the user must still see both. extractCandidates already drops identical
+ * normalized forms, so this map is a defensive best-score pass.
+ *
+ * The near-duplicate cleanup is kept unchanged: when two OCR engines disagree,
+ * one often yields the correct word (matched to a real verdict) while the other
+ * yields a near-miss that only lands in the unreviewed catalog (e.g. とモン vs
+ * レモン果汁). Those weak variants are dropped so they don't clutter the result.
+ */
 function collapse(findings: ScanFinding[]): ScanFinding[] {
-  const byEntry = new Map<string, ScanFinding>();
-  const unmatched: ScanFinding[] = [];
-
+  const byForm = new Map<string, ScanFinding>();
   for (const finding of findings) {
-    if (!finding.match) {
-      unmatched.push(finding);
-      continue;
-    }
-    const id = finding.match.entry.id;
-    const existing = byEntry.get(id);
-    if (!existing || (existing.match && finding.match.score > existing.match.score)) {
-      byEntry.set(id, finding);
+    const existing = byForm.get(finding.normalized);
+    if (
+      !existing ||
+      (finding.match && (!existing.match || finding.match.score > existing.match.score))
+    ) {
+      byForm.set(finding.normalized, finding);
     }
   }
+  const all = [...byForm.values()];
 
-  const all = [...byEntry.values(), ...unmatched];
-
-  // When two OCR engines disagree, one often yields the correct word (matched
-  // to a real verdict) while the other yields a near-miss that only lands in the
-  // unreviewed catalog (e.g. とモン vs レモン果汁). Drop those near-duplicate
-  // unknowns so they don't clutter the result.
   const strong = all.filter((f) => f.match && f.match.entry.status !== 'unknown');
   return all.filter((f) => {
     const weak = !f.match || f.match.entry.status === 'unknown';
