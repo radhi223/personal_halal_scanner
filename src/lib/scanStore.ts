@@ -1,6 +1,8 @@
 import type { ScanFinding } from '@/types';
 
 export interface LastScan {
+  /** Scan id, so feedback records can be correlated with the scan record. */
+  sid: string;
   rawText: string;
   /** The 原材料名 section we actually matched against (may equal rawText). */
   section: string;

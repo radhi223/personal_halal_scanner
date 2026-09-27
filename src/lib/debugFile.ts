@@ -8,6 +8,7 @@ import { File, Paths } from 'expo-file-system';
  * button), or over USB when the app is debuggable.
  */
 export interface ScanDebugRecord {
+  type: 'scan';
   sid: string;
   at: string;
   ms: number;
@@ -22,6 +23,22 @@ export interface ScanDebugRecord {
   raw: { label: string; text: string }[];
 }
 
+/**
+ * Real-use feedback: the user marks a finding as wrong on the result screen.
+ * These records drive the curation backlog (which gaps actually show up in the
+ * field) instead of relying only on the static top-800 frequency list.
+ */
+export interface FeedbackRecord {
+  type: 'feedback';
+  at: string;
+  sid: string;
+  raw: string;
+  normalized: string;
+  entryId: string | null;
+  status: string | null;
+  matchedTerm?: string;
+}
+
 const FILE_NAME = 'scan-debug.jsonl';
 const MAX_RECORDS = 40;
 const MAX_CHARS = 400_000;
@@ -30,8 +47,8 @@ function debugFile(): File {
   return new File(Paths.document, FILE_NAME);
 }
 
-/** Append one scan record (JSONL), rotating when the file gets large. */
-export function appendScanRecord(record: ScanDebugRecord): void {
+/** Append one JSONL record, rotating when the file gets large. */
+function append(record: unknown): void {
   try {
     const file = debugFile();
     if (!file.exists) file.create({ overwrite: true });
@@ -45,6 +62,14 @@ export function appendScanRecord(record: ScanDebugRecord): void {
   } catch (err) {
     console.warn('[debugFile] append failed:', String(err));
   }
+}
+
+export function appendScanRecord(record: ScanDebugRecord): void {
+  append(record);
+}
+
+export function appendFeedbackRecord(record: FeedbackRecord): void {
+  append(record);
 }
 
 /** Raw JSONL contents (empty string when nothing has been recorded yet). */

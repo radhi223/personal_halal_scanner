@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { appendFeedbackRecord } from '@/lib/debugFile';
 import { getLastScan } from '@/lib/scanStore';
 import { colors, statusColor, statusLabel, statusRank } from '@/theme';
 import type { HalalStatus, IngredientEntry, ScanFinding } from '@/types';
@@ -111,7 +112,7 @@ export default function ResultScreen() {
       )}
 
       {matched.map((finding) => (
-        <FindingCard key={finding.match!.entry.id} finding={finding} />
+        <FindingCard key={finding.match!.entry.id} finding={finding} sid={scan.sid} />
       ))}
 
       {unmatched.length > 0 && (
@@ -152,10 +153,26 @@ export default function ResultScreen() {
   );
 }
 
-function FindingCard({ finding }: { finding: ScanFinding }) {
+function FindingCard({ finding, sid }: { finding: ScanFinding; sid: string }) {
   const match = finding.match!;
   const entry = match.entry;
   const color = statusColor[entry.status];
+  const [marked, setMarked] = useState(false);
+
+  const markWrong = () => {
+    if (marked) return;
+    appendFeedbackRecord({
+      type: 'feedback',
+      at: new Date().toISOString(),
+      sid,
+      raw: finding.raw,
+      normalized: finding.normalized,
+      entryId: entry.id,
+      status: entry.status,
+      matchedTerm: match.matchedTerm,
+    });
+    setMarked(true);
+  };
 
   return (
     <View style={[styles.card, { borderLeftColor: color, borderLeftWidth: 5 }]}>
@@ -184,6 +201,12 @@ function FindingCard({ finding }: { finding: ScanFinding }) {
       {entry.sources.length > 0 && (
         <Text style={styles.sources}>Sumber: {entry.sources.join(' • ')}</Text>
       )}
+
+      <Pressable onPress={markWrong} disabled={marked} style={styles.markBtn} hitSlop={6}>
+        <Text style={[styles.markText, marked && styles.markTextDone]}>
+          {marked ? 'Ditandai salah ✓' : 'Tandai salah'}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -306,6 +329,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     color: colors.muted,
+  },
+  markBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 2,
+  },
+  markText: {
+    fontSize: 11,
+    color: colors.muted,
+  },
+  markTextDone: {
+    color: colors.haram,
+    fontWeight: '700',
   },
   rawText: {
     fontSize: 13,

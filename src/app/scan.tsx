@@ -173,6 +173,7 @@ export default function ScanScreen() {
 
       // Persistent debug record (logcat rotates away).
       appendScanRecord({
+        type: 'scan',
         sid,
         at: new Date().toISOString(),
         ms: Date.now() - t0,
@@ -193,6 +194,7 @@ export default function ScanScreen() {
       if (lowQuality) dlog(`[${sid}] LOW_QUALITY coverage=${coverage}`);
 
       setLastScan({
+        sid,
         rawText: texts.map((t) => `[${t.label}]\n${t.text}`).join('\n\n'),
         section: combined,
         findings,

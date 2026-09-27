@@ -36,6 +36,24 @@ length used by the adaptive gate). Per-pass lines: `PASS ML-penuh`,
 | 14 | Persistent debug log | JSONL per scan in the app document dir + **Debug Scan** screen (share/clear); `docs/DEBUG_LOG.md` started |
 | 15 | Low-quality hint + variant | result screen warns "hasil mungkin kurang akurat" when coverage is low (informational only); palm-oil accepts a stray char (`パ.ーム油`) |
 | 16 | Photo-variance check | two scans of the same label: bad photo → 3 passes, matched 13, 7.3 s; good photo → 2 passes, matched 30, 4.4 s. **No code regression** (`git log` for OCR files empty) |
+| 17 | Feedback loop | "Tandai salah" button per finding writes `{type:'feedback', sid, raw, entryId, status}` into the same JSONL log — real-usage signal for the curation backlog |
+
+## Representativeness caveat (open)
+
+The 85.5% weighted coverage comes from **token frequency in the Open Food Facts
+JP corpus** (top-800, 43,037 occurrences). It is a *theoretical* estimate.
+
+Device validation so far covers **~2 categories only** (instant noodles, one
+burger/sandwich). Not yet tested: dry seasoning/spice packs, bottled drinks
+(curved label + glare), frozen food, small snack packs — different layout, font
+size and vocabulary.
+
+High-stakes classification decisions (mirin vs みりん風調味料, E120/cochineal in
+kamaboko, lecithin split, meat = syubhat default) are covered by **synthetic
+smoke tests only**, not by real product photos containing those ingredients.
+
+Do not present these numbers as representative until cross-category validation
+is recorded here per category.
 
 ## Current baseline (device: MediaTek MT6899)
 
