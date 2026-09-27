@@ -124,9 +124,10 @@ export const CURATION_RULES: CurationRule[] = [
       /梅酒/,
       /にごり酒/,
       /どぶろく/,
+      /啤酒/,
     ],
     reasoning:
-      'ビール/発泡酒/リキュール/カクテル/ハイボール/チューハイ/ウォッカ/ブランデー/ウイスキー/蒸留酒/醸造酒/梅酒/にごり酒/どぶろく adalah minuman beralkohol (khamr), haram.',
+      'ビール/発泡酒/リキュール/カクテル/ハイボール/チューハイ/ウォッカ/ブランデー/ウイスキー/蒸留酒/醸造酒/梅酒/にごり酒/どぶろく/啤酒 (bir Tionghoa) adalah minuman beralkohol (khamr), haram.',
     sources: ["QS Al-Maa'idah 5:90", LPPOM],
   },
   {
@@ -149,6 +150,26 @@ export const CURATION_RULES: CurationRule[] = [
     patterns: [/白酒/],
     reasoning:
       '白酒 (baijiu, atau shiroki sake manis Jepang) adalah minuman beralkohol hasil fermentasi/sulingan, haram. Tidak menabrak makanan non-alkohol (audit: satu-satunya kemunculan korpus berkonteks bumbu Tionghoa; tak ada entri curated/katalog non-alkohol yang memuat 白酒).',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
+    id: 'alcohol-seasoning',
+    label: 'Alcohol seasoning / 浸漬酒・料酒・酒精',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'alcohol',
+    // EARLY, before every plant / ph-adjuster / seasoning rule: these tokens are
+    // all alcohol-bearing but are shadowed by an innocuous substring otherwise —
+    // もも浸漬酒/レモン浸漬酒 by もも/レモン (fruit), ラムレーズン by レーズン
+    // (raisin), PH調整剤酒精/酒精PH調整剤 by ph-adjuster, 植物油脂粉末調味料酒/
+    // 調味料酒 by 植物油脂/調味料. 浸漬酒 = fruit steeped in alcohol, 料酒 =
+    // cooking wine, 酒精 = ethanol, ラムレーズン = rum raisin. /洋酒/ already
+    // exists as its own (haram) rule — deliberately not duplicated here.
+    // ラムレーズン is added because it matches none of the other patterns and is
+    // currently swallowed by the raisin rule.
+    patterns: [/浸漬酒/, /料酒/, /酒精/, /ラムレーズン/],
+    reasoning:
+      '浸漬酒/料酒/酒精/ラムレーズン menandakan alkohol (khamr) dipakai sebagai bahan; residunya bisa tertinggal. Tanpa sertifikasi halal, syubhat.',
     sources: ["QS Al-Maa'idah 5:90", LPPOM],
   },
   {
@@ -328,13 +349,16 @@ export const CURATION_RULES: CurationRule[] = [
   },
   {
     id: 'l-cysteine',
-    label: 'L-cysteine / システイン',
+    label: 'L-cysteine / cystine / システイン・シスチン',
     status: 'syubhat',
     confidence: 'medium',
     category: 'additive',
-    patterns: [/システイン/],
+    // シスチン (cystine) has the same source risk as L-cysteine and is included
+    // as the amino-acid exclusion: the bulk expander must not re-add it as a
+    // halal "amino acid" (candidatesFor() skips rule-matched tokens).
+    patterns: [/システイン/, /シスチン/],
     reasoning:
-      'L-sistein dapat berasal dari rambut/bulu/plasma hewani atau sintetis/mikroba. Tanpa keterangan syubhat.',
+      'L-sistein/sistin (シスチン) dapat berasal dari hidrolisis rambut/bulu/plasma hewani atau sintetis/mikroba. Tanpa keterangan sumber syubhat.',
     sources: ['EFSA — E920', LPPOM],
   },
   {
@@ -444,7 +468,7 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'halal',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/卵/, /たまご/, /玉子/, /鶏卵/, /鸡蛋/, /蛋黃/, /蛋黄/, /雞蛋/, /雞卵/],
+    patterns: [/卵/, /たまご/, /タマゴ/, /玉子/, /鶏卵/, /鸡蛋/, /蛋黃/, /蛋黄/, /雞蛋/, /雞卵/],
     reasoning: 'Telur halal.',
     sources: ['LPPOM MUI — turunan hewani halal', JAKIM],
   },
@@ -479,7 +503,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('acidulant', 'Acidulant / 酸味料', [/酸味料/], 'additive', 'Asam pengatur rasa, umumnya halal.'),
   halalRule('thickener', 'Thickener / 増粘多糖類', [/増粘多糖類/, /増粘剤/, /糊料/], 'additive', 'Penstabil/pengental polisakarida, umumnya nabati/mikroba, halal.'),
   halalRule('veg-oil', 'Vegetable oil / 植物油脂', [/植物油脂/, /植物油/, /サラダ油/], 'fat', 'Minyak nabati, halal.'),
-  halalRule('starch', 'Starch / でん粉', [/でん粉/, /澱粉/, /デンプン/], 'plant', 'Pati nabati, halal.'),
+  halalRule('starch', 'Starch / でん粉', [/でん粉/, /でんぷん/, /澱粉/, /デンプン/], 'plant', 'Pati nabati, halal.'),
   halalRule('mayonnaise', 'Mayonnaise / マヨネーズ', [/マヨネーズ/], 'condiment', 'Mayones umumnya dari telur+cuka, halal (waspadai aditif).', 'medium'),
   halalRule('bread', 'Bread / パン', [/パン/], 'grain', 'Roti umumnya halal, tetapi bisa mengandung shortening/margarin hewani — cek bila ada.', 'low'),
   // MUST precede the generic 'seasoning' (halal-low) rule below: fermented /
@@ -517,6 +541,9 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('spice2', 'Spice / 香辛', [/香辛/, /香平料/], 'plant', 'Rempah-rempah (nabati), halal.'),
   halalRule('breadcrumbs', 'Breadcrumbs / パン粉', [/パン粉/], 'grain', 'Tepung roti, halal.'),
   halalRule('phosphate', 'Phosphate / リン酸', [/リン酸/, /三聚磷酸/, /六偏磷酸/], 'additive', 'Garam fosfat (mineral), halal.'),
+  // Anchored on purpose: bare /リン/ is a substring of リンゴ (apple),
+  // グリセリン, リン酸, プリン etc. Only the exact mineral token リン is halal.
+  halalRule('phosphorus', 'Phosphorus / リン', [/^リン$/], 'mineral', 'Fosfor (mineral), halal.'),
   halalRule('palm-oil', 'Palm oil / パーム油', [/パーム油/, /パーム/, /パ一ム油/, /パ一ム/, /パ.ーム油/, /棕榈油/, /棕桐油/], 'fat', 'Minyak sawit (nabati), halal.'),
   halalRule('caramel', 'Caramel / カラメル', [/カラメル/, /ラメル/], 'colorant', 'Karamel dari gula, halal.'),
   halalRule('chili', 'Chili / 唐辛子', [/唐辛子/, /とうがらし/, /トウガラシ/], 'plant', 'Cabai (nabati), halal.'),
@@ -593,9 +620,23 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'low',
     category: 'colorant',
-    patterns: [/着色料/, /色料/],
+    // /^色素$/ is anchored: bare 色素 is a generic colorant (source-dependent),
+    // while prefixes like パプリカ色素/野菜色素 have their own halal rules and
+    // コチニール色素 its own syubhat entry. An unanchored /色素/ would shadow them.
+    patterns: [/着色料/, /色料/, /^色素$/],
     reasoning: 'Pewarna generik bisa nabati, sintetis, atau serangga/hewani (mis. cochineal). Perlu verifikasi.',
     sources: ['EFSA — pewarna', LPPOM],
+  },
+  {
+    id: 'bleaching-agent',
+    label: 'Bleaching agent / 漂白剤',
+    status: 'syubhat',
+    confidence: 'low',
+    category: 'additive',
+    patterns: [/漂白剤/],
+    reasoning:
+      'Zat pemutih (漂白剤) bisa berupa peroksida/sulfit (mineral) atau turunan lemak/enzim hewani tergantung produk. Perlu verifikasi.',
+    sources: ['EFSA — E928/E925', LPPOM],
   },
   {
     id: 'sauce',

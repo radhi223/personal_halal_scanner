@@ -133,6 +133,11 @@ const NOISE_EXACT = new Set(
     // inside a real phrase, and 保存料 is a genuine additive class (handled by
     // the preservative2 rule) so it is deliberately NOT listed here.
     '添加量', '気密性容器', '每包裝所含食用分量數目',
+    // Bare generic nouns that are never an ingredient by themselves. Kept EXACT
+    // so prefixed forms (オニオンパウダー, カレーフィリング, 果汁ピューレ…)
+    // still match normally: only the bare word is dropped.
+    'あたり', 'パウダー', 'フィリング', 'ピューレ', '粉末', 'パック', 'ラベル', '粉末状',
+    '容量', '固形量', '具材', 'トッピング', 'デザート', 'やくみ', 'ソテー', 'うきみ',
     'ガーナ', 'メキシコ', 'ベトナム', 'インド', '北海道',
     'g当たり', '当たり',
     // Country-of-origin names. EXACT only — never add to NOISE_RE: a substring
@@ -215,8 +220,11 @@ export function extractCandidates(text: string): string[] {
   // (e.g. マヨネ + "|" + ズ). Drop them so the word can reassemble.
   text = text.replace(/[|｜│┃]/g, '');
 
+  // NB: ､ (half-width comma) and ｡ (half-width full stop) are included
+  // literally — NFKC would fold them to 、/。, but the raw text is split BEFORE
+  // normalization, so without them "赤ワイン､食塩" stayed a single token.
   const segments = text
-    .split(/[\n\r、。，,．・/／|｜:：;；()（）〔〕\[\]【】「」『』]+/)
+    .split(/[\n\r、。，,．・/／|｜:：;；､｡()（）〔〕\[\]【】「」『』]+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 

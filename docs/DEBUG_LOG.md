@@ -54,6 +54,7 @@ Corpus: OFF-JP top-800 tokens (43,037 occurrences) + per-category buckets.
 | 8 | wine restore + rum/米酒/白酒/豚コラーゲン | final audit: 果実酒→halal, セパージュワイン→halal, ビール→syubhat via ビーフ | unknown 90 → 88 |
 | 9 | **precedence: exact-curated > rules > fuzzy-curated > catalog**; alcohol rules; vegan guard | verifier: カクテルソース→haram, fermented seasonings lost caution | unknown 88 → 86 |
 | 10 | cocktail lookahead; fermented-seasoning syubhat; 蒸し鶏/食肉/チーズパウダー | — | **covered 86.4%, unknown 1.4% (82)** |
+| 11 | **bulk label expansion** (`scripts/expand-labels.mjs`, lexicon-driven, `exp:*` entries); generic-word noise filter | full-corpus weighted coverage 79.1% → 84.0%; 877 new curated entries; fuzzy-flip audit (952 flips, of which the 2 `syubhat→halal` were exact fixes of pre-existing fuzzy bugs みかん/ビート) | **covered 87.7%, noise 12.2%, unknown 0.2% (10)**; eval 99.7/92.1/83.8; labelled total 2,011 |
 
 ### Invariants now enforced (do not regress)
 
@@ -75,6 +76,26 @@ Corpus: OFF-JP top-800 tokens (43,037 occurrences) + per-category buckets.
 | High-stakes assertions | 19/19 (harness), 25/25 (independent) |
 | Smoke tests | 37 groups, ALL PASS |
 | Haram set | 37 corpus tokens, all explicit (exact or rule), 0 from fuzzy |
+
+### Final metrics after round 11 (bulk expansion)
+
+| Metric | Value |
+|---|---|
+| Weighted coverage (top-800) | **87.7%** |
+| Noise | 12.2% |
+| Unknown | **0.2% (10 tokens)** |
+| Eval recall (clean / 15% / 30% OCR error) | **99.7 / 92.1 / 83.8** |
+| High-stakes assertions | 19/19 |
+| Smoke tests | 38 groups (114 new `[exp38]` assertions), ALL PASS |
+| Haram set | 19 top-800 corpus tokens, all explicit, 0 from fuzzy |
+| Labelled total (curated files + rules) | **2,011** (was 1,134) |
+
+Bulk-expansion residual risk: the 877 `exp:*` entries are lexicon-reviewed but
+not device-validated. The generator refuses halal when a token contains an
+animal/alcohol marker, only emits haram from hand-written explicit tokens, and
+refuses non-haram names one edit away from an existing haram entry. Bare
+generic label words (パウダー/フィリング/あたり/粉末/ラベル/パック…) are now
+label noise so fuzzy matching cannot attach a verdict to them.
 
 ## Representativeness caveat (open)
 

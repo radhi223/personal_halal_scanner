@@ -18,6 +18,14 @@ async function getService(): Promise<PaddleOcrService> {
   if (!service) {
     service = new PaddleOcrService({
       model: V5_MOBILE_MODEL,
+      // NOTE on `processing.engine`: on React Native this setting is a no-op.
+      // `mobile/paddle-ocr.service.mobile.js` (ppu-paddle-ocr 6.6.0) builds its
+      // Detection/Recognition services with a hardcoded "canvas-native" engine
+      // and never reads `options.processing`; the mobile platform provider
+      // wraps `ppu-ocv/canvas-mobile` (Skia) and exposes no OpenCV
+      // `imageProcessor`. So the library default `engine: 'opencv'` cannot
+      // apply here: every mobile run uses canvas-native. (Verified against the
+      // installed 6.6.0 sources, 2026-09-27.)
       session: {
         // Hardware acceleration on Android (GPU/NPU via NNAPI); ONNX Runtime
         // falls back to CPU automatically if a provider is unavailable.
@@ -76,11 +84,15 @@ export async function recognizeJapanesePaddle(imageUri: string): Promise<string>
   console.log(`[Paddle] image bytes=${buffer.byteLength}`);
 
   const t1 = Date.now();
-  // cross-line batches crops into uniform-width groups -> fewest inferences.
+  // per-line is the accuracy-first choice. The library's own benchmark (opencv
+  // engine, v6 tiny, same reference receipt) reports per-box/per-line 99.48%
+  // vs cross-line 94.26% recognition accuracy. We previously forced cross-line
+  // because it batches crops into uniform-width groups -> fewest inferences,
+  // but that was a speed-over-accuracy trade costing ~5 points. Accuracy wins.
   const result = await svc.recognize(buffer, {
     flatten: true,
     minimumConfidence: 0.4,
-    strategy: 'cross-line',
+    strategy: 'per-line',
   });
   const text = result.text ?? '';
   console.log(`[Paddle] recognize ${Date.now() - t1}ms chars=${text.length}`);

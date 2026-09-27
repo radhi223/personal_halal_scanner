@@ -72,6 +72,15 @@ group(0.3, 'ブフプ');
 group(0.3, 'ベヘペ');
 group(0.3, 'ボホポ');
 
+// --- kana: published Japanese OCR confusion sets ------------------------------
+// Tier-K entries from published Japanese OCR confusion data (SHOMEI pool,
+// built on human-validated Japanese shape confusions). These classic misreads
+// were missing from the groups above; cost kept in the same 0.25-0.3 band so
+// they aid fuzzy matching without loosening unrelated pairs.
+pair('シ', 'ツ', 0.3);
+pair('ソ', 'ン', 0.3);
+pair('は', 'ほ', 0.3);
+
 // --- katakana look-alikes seen in our scan logs -------------------------------
 group(0.3, 'カ力'); // カラメル -> 力メル
 group(0.3, 'エ工'); // クエン酸 -> ク工酸

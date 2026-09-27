@@ -34,11 +34,14 @@ export interface IngredientIndex {
   entries: IngredientEntry[];
   exact: Map<string, IngredientEntry>;
   names: NamedTerm[];
+  /** Normalized names of every haram entry, used by the haram-shadow guard. */
+  haramNames: NamedTerm[];
 }
 
 export function buildIndex(entries: IngredientEntry[]): IngredientIndex {
   const exact = new Map<string, IngredientEntry>();
   const names: NamedTerm[] = [];
+  const haramNames: NamedTerm[] = [];
 
   for (const entry of entries) {
     for (const alias of entry.names) {
@@ -46,10 +49,11 @@ export function buildIndex(entries: IngredientEntry[]): IngredientIndex {
       if (!term) continue;
       if (!exact.has(term)) exact.set(term, entry);
       names.push({ term, entry });
+      if (entry.status === 'haram') haramNames.push({ term, entry });
     }
   }
 
-  return { entries, exact, names };
+  return { entries, exact, names, haramNames };
 }
 
 /** Canonical best match for a normalized term, or null. */
@@ -63,6 +67,22 @@ export function matchNormalized(index: IngredientIndex, normalized: string): Mat
 
   const queryAllowance = maxFuzzyDistance(normalized.length);
   if (queryAllowance === 0) return null;
+
+  // Haram-shadow guard: a near-miss of a haram term must NEVER be silently
+  // promoted to halal/syubhat by an unrelated fuzzy match. ラート is one
+  // character from ラード (lard, haram) and used to fuzzy-match ビート (beet,
+  // halal), so a typo of a haram ingredient was reported halal. If the query is
+  // within the length-aware fuzzy distance of ANY haram term in this index,
+  // refuse the fuzzy match entirely and return null, letting the caller fall
+  // through to rules/catalog/unknown (a cautious verdict or explicit "belum
+  // ditinjau"). Exact matches are unaffected (returned above), so ラード itself
+  // stays haram.
+  for (const { term } of index.haramNames) {
+    const shadowAllowance = Math.min(queryAllowance, maxFuzzyDistance(term.length));
+    if (shadowAllowance <= 0) continue;
+    if (Math.abs(term.length - normalized.length) > shadowAllowance) continue;
+    if (levenshtein(normalized, term) <= shadowAllowance) return null;
+  }
 
   let best: MatchResult | null = null;
   for (const { term, entry } of index.names) {

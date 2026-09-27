@@ -13,6 +13,7 @@ import { clampRect, computeIngredientCrop, scaleRect } from '@/lib/autoCrop';
 import { FORBIDDEN_CHEAP_PAIRS, substitutionCost } from '@/lib/confusion';
 import { similarity, weightedSimilarity } from '@/lib/levenshtein';
 import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matcher';
+import { CURATION_RULES, matchRule } from '@/lib/rules';
 import {
   extractCandidates,
   extractIngredientSection,
@@ -440,6 +441,19 @@ for (const [a, b] of FORBIDDEN_CHEAP_PAIRS) {
 }
 check('forbidden pairs stay expensive', forbiddenCheap, 0);
 
+// 24b. Published Japanese OCR confusion sets (SHOMEI Tier K): the classic kana
+// misreads シ/ツ, ソ/ン, は/ほ must be cheap for the fuzzy matcher, but must not
+// weaken the high-stakes safety set (re-asserted here so the new pairs are
+// covered by the invariant, not just by the earlier loop).
+check('cost シ/ツ cheap (published kana confusion)', substitutionCost('シ', 'ツ') < 0.5, true);
+check('cost ソ/ン cheap (published kana confusion)', substitutionCost('ソ', 'ン') < 0.5, true);
+check('cost は/ほ cheap (published kana confusion)', substitutionCost('は', 'ほ') < 0.5, true);
+let kanaForbiddenCheap = 0;
+for (const [a, b] of FORBIDDEN_CHEAP_PAIRS) {
+  if (substitutionCost(a, b) < 1) kanaForbiddenCheap++;
+}
+check('high-stakes pairs still expensive after kana additions', kanaForbiddenCheap, 0);
+
 const wSim = weightedSimilarity('マヨネース', 'マヨネーズ', substitutionCost);
 const uSim = similarity('マヨネース', 'マヨネーズ');
 check('weighted similarity boosts kana pair', wSim > uSim, true);
@@ -850,6 +864,219 @@ check('[fix37] ビール -> haram', verdict30('ビール').status, 'haram');
 check('[fix37] 酵母エキス -> halal', verdict30('酵母エキス').status, 'halal');
 check('[fix37] 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
 check('[fix37] 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+
+// 38. Bulk label expansion (scripts/expand-labels.mjs). Representative sample
+// from the ~877 generated curated entries + the safety non-regressions.
+const EXP_PLANT: [string, string][] = [
+  ['たけのこ', 'halal'],
+  ['たけのこ水煮', 'halal'],
+  ['れんこん', 'halal'],
+  ['ほうれんそう', 'halal'],
+  ['しそ', 'halal'],
+  ['みかん', 'halal'], // was fuzzy→みりん(syubhat) before the exact entry
+  ['ビート', 'halal'], // was fuzzy→ビーフ(syubhat) before the exact entry
+  ['モロヘイヤ', 'halal'],
+  ['カレーリーフ', 'halal'],
+];
+for (const [raw, status] of EXP_PLANT) {
+  check(`[exp38] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+const EXP_LEGUME: [string, string][] = [
+  ['ひよこ豆', 'halal'],
+  ['白いんげん豆', 'halal'],
+  ['枝豆', 'halal'],
+  ['豆乳', 'halal'],
+  ['おから', 'halal'],
+  ['つぶあん', 'halal'],
+  ['白あん', 'halal'],
+];
+for (const [raw, status] of EXP_LEGUME) {
+  check(`[exp38] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+for (const raw of ['グレープフルーツ', 'デーツ', 'キウイフルーツ', 'ゆず']) {
+  check(`[exp38] ${raw} -> halal (fruit)`, verdict30(raw).status, 'halal');
+}
+for (const raw of ['上新粉', 'オーツ粉', '蕎麦の実', 'パスタ', 'おむすび', 'もなか']) {
+  check(`[exp38] ${raw} -> halal (grain)`, verdict30(raw).status, 'halal');
+}
+for (const raw of ['マグロ', 'いわし', 'さんま', 'ほたて', 'あさり', '明太子', 'しらす', 'かまぼこ', '焼きあご']) {
+  check(`[exp38] ${raw} -> halal (sea)`, verdict30(raw).status, 'halal');
+}
+for (const raw of ['岩塩', '焼成Ca', 'にがり', '二酸化炭素', '海洋深層水', '硫酸カルシウム', 'カルシウム', 'グルコン酸鉄']) {
+  check(`[exp38] ${raw} -> halal (mineral)`, verdict30(raw).status, 'halal');
+}
+for (const raw of ['アラニン', 'エリスリトール', 'プルラン', 'ジェランガム', '結晶セルロース', 'スクロース', 'カルナウバロウ', 'アラビアゴム', 'ヒドロキシプロピルセルロース']) {
+  check(`[exp38] ${raw} -> halal (additive)`, verdict30(raw).status, 'halal');
+}
+for (const raw of ['米酢', '黒糖', '三温糖', '食鹽']) {
+  check(`[exp38] ${raw} -> halal (sugar/vinegar/salt)`, verdict30(raw).status, 'halal');
+}
+// Source-dependent classes and animal-derived terms stay syubhat.
+const EXP_SYUBHAT: [string, string][] = [
+  ['保湿剤', 'syubhat'],
+  ['結着材料', 'syubhat'],
+  ['ソルビタン', 'syubhat'],
+  ['プロピレングリコール', 'syubhat'],
+  ['つなぎ', 'syubhat'], // exact entry prevents fuzzy→うなぎ(halal)
+  ['ラック', 'syubhat'],
+  ['ローヤルゼリー', 'syubhat'],
+  ['ランチョンミート', 'syubhat'],
+  ['ソーセージ', 'syubhat'],
+  ['ハンバーグ', 'syubhat'],
+  ['牛挽肉', 'syubhat'],
+  ['鶏油', 'syubhat'],
+  ['フォンドヴォー', 'syubhat'],
+  ['チーズ加工品', 'syubhat'],
+  ['シュレッドチーズ', 'syubhat'],
+  ['パルメザンチーズ', 'syubhat'],
+  ['つゆ', 'syubhat'],
+  ['カレールー', 'syubhat'],
+  ['調味液', 'syubhat'],
+  ['調味粉', 'syubhat'],
+  ['粉末しょう油', 'syubhat'],
+  ['中華だし', 'syubhat'],
+  ['粉末ブイヨン', 'syubhat'],
+  ['梅酢', 'syubhat'],
+  ['デコレーションホイップ', 'syubhat'],
+  ['植脂末', 'syubhat'],
+];
+for (const [raw, status] of EXP_SYUBHAT) {
+  check(`[exp38] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+// Explicit haram (never from a heuristic).
+for (const raw of ['紹興酒', 'ウオッカ', '味付豚挽肉', '豚タントリミング']) {
+  check(`[exp38] ${raw} -> haram`, verdict30(raw).status, 'haram');
+}
+// Chinese additive names mapped to their Japanese-rule equivalent.
+for (const raw of ['三氯蔗糖', '安赛蜜', '山梨酸钾', '二氧化硅', '碳酸钙', '黄原胶', '焦糖色素', '栀子黄']) {
+  check(`[exp38] CN ${raw} -> halal`, verdict30(raw).status, 'halal');
+}
+// Names added to existing entries.
+check('[exp38] ミリン -> syubhat (mirin entry)', verdict30('ミリン').status, 'syubhat');
+check('[exp38] 酵母工キス -> halal (yeast-extract entry)', verdict30('酵母工キス').status, 'halal');
+check('[exp38] ボークエキの -> haram (pork-extract entry)', verdict30('ボークエキの').status, 'haram');
+check('[exp38] たけのこ uses generated id', (verdict30('たけのこ').id ?? '').startsWith('exp:'), true);
+
+// Critical non-regressions (must never move).
+check('[exp38] non-reg: 植物油脂 -> halal', verdict30('植物油脂').status, 'halal');
+check('[exp38] non-reg: 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+check('[exp38] non-reg: 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
+check('[exp38] non-reg: 乳化剤 -> syubhat', verdict30('乳化剤').status, 'syubhat');
+check('[exp38] non-reg: 大豆レシチン -> halal', verdict30('大豆レシチン').status, 'halal');
+check('[exp38] non-reg: レシチン -> syubhat', verdict30('レシチン').status, 'syubhat');
+check('[exp38] non-reg: E120 -> syubhat', verdict30('E120').status, 'syubhat');
+check('[exp38] non-reg: E100 -> halal', verdict30('E100').status, 'halal');
+
+// Deliberately unlabelled / guarded tokens.
+check('[exp38] 漂白剤 NOT halal', verdict30('漂白剤').status !== 'halal', true);
+check('[exp38] ラー油 NOT halal (near ラード)', verdict30('ラー油').status !== 'halal', true);
+check('[exp38] カオマス NOT halal (OCR fragment)', verdict30('カオマス').status !== 'halal', true);
+check('[exp38] bare パウダー is label noise', isLabelNoise(normalize('パウダー')), true);
+check('[exp38] bare フィリング is label noise', isLabelNoise(normalize('フィリング')), true);
+check('[exp38] bare あたり is label noise', isLabelNoise(normalize('あたり')), true);
+
+// Labelled total: curated data (ingredients + ecodes) + keyword rules.
+const labCurated = loadCurated().entries.length;
+const labRules = CURATION_RULES.length;
+check('[exp38] curated data files grew past 1700', labCurated > 1700, true);
+check('[exp38] LABELLED TOTAL (curated + rules) >= 2000', labCurated + labRules >= 2000, true);
+
+// 39. Independent-verifier fixes: haram-shadow guard, cystine source risk,
+// cautious prepared meat, alcohol-seasoning rules, corpus gaps, half-width
+// separators, metadata corrections.
+const finding39 = (raw: string) =>
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), raw).find((f) => f.match);
+
+// Haram-shadow guard: a near-haram typo must not be promoted by fuzzy matching.
+check('[fix39] ラート NOT halal (haram-shadow guard)', verdict30('ラート').status !== 'halal', true);
+check('[fix39] ラート no longer fuzzy-matches exp:ビート', verdict30('ラート').id === 'exp:ビート', false);
+check('[fix39] ラード still haram (exact)', verdict30('ラード').status, 'haram');
+check('[fix39] ビート still halal', verdict30('ビート').status, 'halal');
+
+// Cystine is source-dependent, same risk class as L-cysteine.
+check('[fix39] シスチン -> syubhat', verdict30('シスチン').status, 'syubhat');
+check('[fix39] シスチン confidence medium', finding39('シスチン')?.match?.entry.confidence, 'medium');
+// The rule layer must also exclude シスチン: the bulk expander skips rule-matched
+// tokens, so this is what stops it being re-added as a halal amino acid.
+check('[fix39] シスチン amino-acid exclusion rule', matchRule(normalize('シスチン'))?.id, 'l-cysteine');
+
+// Generic seasoned mince can be pork depending on the product.
+check('[fix39] 味付挽肉 NOT halal', verdict30('味付挽肉').status !== 'halal', true);
+check('[fix39] 味付挽肉 -> syubhat', verdict30('味付挽肉').status, 'syubhat');
+check('[fix39] 味付挽肉 confidence low', finding39('味付挽肉')?.match?.entry.confidence, 'low');
+check('[fix39] 味付豚挽肉 still haram', verdict30('味付豚挽肉').status, 'haram');
+
+// Metadata / confidence corrections from the same audit.
+check('[fix39] exp:タラガム category additive', finding39('タラガム')?.match?.entry.category, 'additive');
+check('[fix39] exp:はちみつパウダー category animal', finding39('はちみつパウダー')?.match?.entry.category, 'animal');
+check('[fix39] exp:ドーナツ confidence low', finding39('ドーナツ')?.match?.entry.confidence, 'low');
+check('[fix39] exp:味付スパゲッティ confidence low', finding39('味付スパゲッティ')?.match?.entry.confidence, 'low');
+
+// Alcohol masked by plant / ph-adjuster / seasoning rules.
+for (const raw of [
+  'もも浸漬酒',
+  'レモン浸漬酒',
+  'ラムレーズン',
+  'PH調整剤酒精',
+  '酒精PH調整剤',
+  '植物油脂粉末調味料酒',
+  '調味料酒',
+]) {
+  check(`[fix39] ${raw} -> syubhat`, verdict30(raw).status, 'syubhat');
+}
+check('[fix39] alcohol-seasoning rule id', verdict30('もも浸漬酒').id, 'rule:alcohol-seasoning');
+check('[fix39] ラムレーズン rule id', verdict30('ラムレーズン').id, 'rule:alcohol-seasoning');
+check('[fix39] 啤酒 -> haram', verdict30('啤酒').status, 'haram');
+check('[fix39] 啤酒 beer rule id', verdict30('啤酒').id, 'rule:beer');
+
+// Corpus gaps.
+check('[fix39] タマゴ -> halal', verdict30('タマゴ').status, 'halal');
+check('[fix39] でんぷん -> halal', verdict30('でんぷん').status, 'halal');
+check('[fix39] リン -> halal', verdict30('リン').status, 'halal');
+check('[fix39] リンゴ still halal (apple, not phosphorus)', verdict30('リンゴ').status, 'halal');
+check('[fix39] リンゴ apple rule id', verdict30('リンゴ').id, 'rule:apple');
+check('[fix39] 漂白剤 -> syubhat', verdict30('漂白剤').status, 'syubhat');
+check('[fix39] 色素 -> syubhat', verdict30('色素').status, 'syubhat');
+
+// Half-width comma must split before normalization.
+check('[fix39] 赤ワイン､食塩 splits into 2 tokens', extractCandidates('赤ワイン､食塩').length, 2);
+const splitWine39 = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '赤ワイン､食塩');
+check(
+  '[fix39] 赤ワイン､食塩 -> 赤ワイン haram',
+  splitWine39.find((f) => f.normalized === '赤ワイン')?.match?.entry.status,
+  'haram'
+);
+
+// Non-regressions.
+check('[fix39] non-reg: 植物油脂 -> halal', verdict30('植物油脂').status, 'halal');
+check('[fix39] non-reg: ビート -> halal', verdict30('ビート').status, 'halal');
+check('[fix39] non-reg: 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
+check('[fix39] non-reg: 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+
+// 40. Haram-shadow guard collateral: legitimate foods were left unknown because
+// they sit within the guard's length-aware edit distance of a curated haram term
+// (ぶどう ~ ぶどう酒, ぶどう酢 ~ ぶどう酒, パイン ~ ワイン). They are fixed with
+// EXACT curated entries; the guard itself is untouched, and ぶどう酒/ラード stay
+// haram exact entries.
+check('[fix40] ぶどう -> halal (grapes)', verdict30('ぶどう').status, 'halal');
+check('[fix40] ぶどう curated grape id', verdict30('ぶどう').id, 'grape');
+check('[fix40] ブドウ -> halal', verdict30('ブドウ').status, 'halal');
+check('[fix40] 葡萄 -> halal', verdict30('葡萄').status, 'halal');
+check('[fix40] ぶどう酢 -> halal (grape vinegar)', verdict30('ぶどう酢').status, 'halal');
+check('[fix40] ぶどう酢 NOT haram', notHaram('ぶどう酢'), true);
+check('[fix40] ぶどう糖 -> halal (glucose, curated exact)', verdict30('ぶどう糖').status, 'halal');
+check('[fix40] ぶどう糖 curated glucose id', verdict30('ぶどう糖').id, 'glucose');
+check('[fix40] ぶどう酒 -> haram (wine, curated exact)', verdict30('ぶどう酒').status, 'haram');
+check('[fix40] ぶどう酒 curated wine id', verdict30('ぶどう酒').id, 'wine');
+check('[fix40] 葡萄酢 -> halal', verdict30('葡萄酢').status, 'halal');
+check('[fix40] パイン -> halal (pineapple abbreviation)', verdict30('パイン').status, 'halal');
+check('[fix40] ラード -> haram (lard, exact)', verdict30('ラード').status, 'haram');
+check('[fix40] ラート NOT halal (guard intact)', verdict30('ラート').status !== 'halal', true);
+check('[fix40] ラート no longer fuzzy-matches exp:ビート', verdict30('ラート').id === 'exp:ビート', false);
+check('[fix40] ビート -> halal (non-reg)', verdict30('ビート').status, 'halal');
+check('[fix40] non-reg: 植物油脂 -> halal', verdict30('植物油脂').status, 'halal');
+check('[fix40] non-reg: 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+check('[fix40] non-reg: 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
