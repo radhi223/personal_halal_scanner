@@ -810,5 +810,46 @@ check('[fix36] 果実酒 rule id', verdict30('果実酒').id, 'rule:sweet-fruit-
 check('[fix36] セパージュワイン curated wine id', verdict30('セパージュワイン').id, 'wine');
 check('[fix36] 麦芽エキス rule id', verdict30('麦芽エキス').id, 'rule:malt');
 
+// 37. Independent-verification fixes: cocktail-sauce/dressing false haram,
+// fermented/flavoured-seasoning syubhat recovery, chicken/meat fat gaps, and
+// cheese powder.
+check('カクテル -> haram', verdict30('カクテル').status, 'haram');
+check('カクテルソース NOT haram', notHaram('カクテルソース'), true);
+check('カクテルドレッシング NOT haram', notHaram('カクテルドレッシング'), true);
+check('[fix37] カクテル rule id', verdict30('カクテル').id, 'rule:beer');
+check('[fix37] カクテルソース -> sauce syubhat', verdict30('カクテルソース').status, 'syubhat');
+check('[fix37] カクテルドレッシング -> dressing syubhat', verdict30('カクテルドレッシング').status, 'syubhat');
+
+const FERMENTED37: [string, string][] = [
+  ['醸造調味料', 'syubhat'],
+  ['発酵調味料', 'syubhat'],
+  ['醗酵調味料', 'syubhat'],
+  ['はっ酵調味料', 'syubhat'],
+  ['米発酵調味料', 'syubhat'],
+  ['発酵風味料', 'syubhat'],
+  ['香味調味料', 'syubhat'],
+  ['風味調味料', 'syubhat'],
+  ['液体調味料', 'syubhat'],
+];
+for (const [raw, status] of FERMENTED37) {
+  check(`[fix37] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[fix37] 調味料 -> halal', verdict30('調味料').status, 'halal');
+check('[fix37] 醸造調味料 rule id', verdict30('醸造調味料').id, 'rule:fermented-seasoning');
+check('[fix37] 液体調味料 rule id', verdict30('液体調味料').id, 'rule:fermented-seasoning');
+
+check('[fix37] 蒸し鶏 -> syubhat', verdict30('蒸し鶏').status, 'syubhat');
+check('[fix37] 鶏脂 -> syubhat', verdict30('鶏脂').status, 'syubhat');
+check('[fix37] 食肉 NOT halal', verdict30('食肉').status !== 'halal', true);
+check('[fix37] 食肉 -> syubhat', verdict30('食肉').status, 'syubhat');
+check('[fix37] チーズパウダー -> syubhat', verdict30('チーズパウダー').status, 'syubhat');
+check('[fix37] チーズパウダー rule id', verdict30('チーズパウダー').id, 'rule:cheese-powder');
+
+// Non-regressions.
+check('[fix37] ビール -> haram', verdict30('ビール').status, 'haram');
+check('[fix37] 酵母エキス -> halal', verdict30('酵母エキス').status, 'halal');
+check('[fix37] 麦芽エキス -> halal', verdict30('麦芽エキス').status, 'halal');
+check('[fix37] 豚肉エキス -> haram', verdict30('豚肉エキス').status, 'haram');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

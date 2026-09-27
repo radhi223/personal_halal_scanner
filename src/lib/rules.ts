@@ -111,7 +111,9 @@ export const CURATION_RULES: CurationRule[] = [
       /ビール/,
       /発泡酒/,
       /リキュール/,
-      /カクテル/,
+      // NB: negative lookahead — カクテルソース/カクテルドレッシング are
+      // condiments (not khamr); only a bare cocktail (the drink) is haram.
+      /カクテル(?!ソース|ドレッシング)/,
       /ハイボール/,
       /チューハイ/,
       /ウォッカ/,
@@ -312,6 +314,19 @@ export const CURATION_RULES: CurationRule[] = [
     sources: [LPPOM, JAKIM],
   },
   {
+    id: 'cheese-powder',
+    label: 'Cheese powder',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'dairy',
+    // Plain チーズ is a curated entry (natural-cheese); this rule-only token is
+    // the powdered form, which may contain animal rennet like any cheese.
+    patterns: [/チーズパウダー/, /チーズ粉末/],
+    reasoning:
+      'Bubuk keju dapat mengandung rennet hewani (lihat rennet) sehingga perlu sertifikasi halal. Syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
+  {
     id: 'l-cysteine',
     label: 'L-cysteine / システイン',
     status: 'syubhat',
@@ -385,7 +400,10 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/],
+    // 蒸し鶏 (steamed chicken) and 鶏脂 (chicken fat) are unlabeled poultry.
+    // 食肉 ("meat") is added here (chicken = first meat rule) because a generic
+    // meat term cannot be certified halal; it is left syubhat, never halal.
+    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/, /蒸し鶏/, /鶏脂/, /食肉/],
     reasoning: 'Daging ayam halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa logo/sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -464,6 +482,31 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('starch', 'Starch / でん粉', [/でん粉/, /澱粉/, /デンプン/], 'plant', 'Pati nabati, halal.'),
   halalRule('mayonnaise', 'Mayonnaise / マヨネーズ', [/マヨネーズ/], 'condiment', 'Mayones umumnya dari telur+cuka, halal (waspadai aditif).', 'medium'),
   halalRule('bread', 'Bread / パン', [/パン/], 'grain', 'Roti umumnya halal, tetapi bisa mengandung shortening/margarin hewani — cek bila ada.', 'low'),
+  // MUST precede the generic 'seasoning' (halal-low) rule below: fermented /
+  // brewed seasonings carry alcohol from fermentation, and flavour/liquid
+  // seasonings commonly carry alcohol or animal extracts. Plain 調味料 /
+  // 和風調味料 / 粉末調味料 / 添付調味料 stay halal-low.
+  {
+    id: 'fermented-seasoning',
+    label: 'Fermented/flavoured seasoning',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'seasoning',
+    patterns: [
+      /醸造調味料/,
+      /発酵調味料/,
+      /醗酵調味料/,
+      /はっ酵調味料/,
+      /米発酵/,
+      /発酵風味料/,
+      /香味調味料/,
+      /風味調味料/,
+      /液体調味料/,
+    ],
+    reasoning:
+      'Bumbu fermentasi/beraroma (醸造/発酵/香味/風味/液体調味料) dapat mengandung alkohol hasil fermentasi atau ekstrak hewani. Perlu verifikasi.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('seasoning', 'Seasoning / 調味料', [/調味料/, /调味料/, /調味油/], 'additive', 'Bumbu/penyedap (mis. アミノ酸等). Umumnya halal, tetapi sebagian bisa berisi ekstrak hewani.', 'low'),
   halalRule('fruit-juice', 'Fruit juice / 果汁', [/果汁/, /果计/], 'plant', 'Sari buah (nabati), halal.'),
 
