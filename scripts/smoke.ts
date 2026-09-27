@@ -16,6 +16,7 @@ import { analyzeLayered, analyzeText, buildIndex, matchTerm } from '@/lib/matche
 import { CURATION_RULES, matchRule } from '@/lib/rules';
 import { searchIngredients } from '@/lib/search';
 import { computeVerdictBanner, effectiveStatus } from '@/lib/verdict';
+import type { HalalStatus } from '@/types';
 import {
   extractCandidates,
   extractIngredientSection,
@@ -1923,6 +1924,99 @@ for (const name of [
     ['rule:meat-cut', 'rule:pork', 'rule:chicken', 'rule:beef', 'rule:lamb'].includes(id),
     false
   );
+}
+
+// 49. Final-gate round 7: pork dishes were shadowed by halal sub-words
+// (豚の生姜焼き -> rule:ginger halal) and katakana cuts / dish names produced no
+// finding at all (green banner next to halal items).
+for (const [name, want] of [
+  ['豚の生姜焼き', 'haram:rule:pork'],
+  ['豚みそ漬け', 'haram:rule:pork'],
+  ['豚のりんご煮', 'haram:rule:pork'],
+  ['豚のレモン煮', 'haram:rule:pork'],
+  ['豚のにんにく炒め', 'haram:rule:pork'],
+  ['豚モモ肉', 'haram:rule:pork'],
+  ['豚スネ肉', 'haram:rule:pork'],
+  ['豚ほほ肉', 'haram:rule:pork'],
+  ['豚テキ', 'haram:rule:pork'],
+  ['豚丼', 'haram:rule:pork'],
+  ['豚まん', 'haram:rule:pork'],
+  ['豚しゃぶ', 'haram:rule:pork'],
+  ['豚キムチ', 'haram:rule:pork'],
+  ['煮豚', 'haram:rule:pork'],
+  ['豚ハラミ', 'haram:rule:pork'],
+  ['豚背脂', 'haram:rule:pork'],
+  ['リブロース', 'syubhat:rule:meat-cut'],
+  ['モモ肉', 'syubhat:rule:meat-cut'],
+  ['スネ肉', 'syubhat:rule:meat-cut'],
+  ['モツ', 'syubhat:rule:meat-cut'],
+  ['鶏モモ肉', 'syubhat:rule:chicken'],
+  ['鶏白湯', 'syubhat:rule:chicken'],
+  ['鶏団子', 'syubhat:rule:chicken'],
+  ['焼鳥', 'syubhat:rule:chicken'],
+  ['カモ', 'syubhat:rule:chicken'],
+  ['牛モモ肉', 'syubhat:rule:beef'],
+  ['牛スジ', 'syubhat:rule:beef'],
+  ['牛丼', 'syubhat:rule:beef'],
+  ['肉まん', 'syubhat:rule:meat-cut'],
+  ['焼肉', 'syubhat:rule:meat-cut'],
+  ['カツ丼', 'syubhat:rule:meat-cut'],
+  ['餃子', 'syubhat:rule:meat-cut'],
+  ['焼売', 'syubhat:rule:meat-cut'],
+] as [string, string][]) {
+  check(`[ver7] ${name} -> ${want}`, device(name), want);
+}
+for (const name of [
+  'とんかつソース',
+  '海豚',
+  '河豚',
+  'カツオ',
+  'ハラミツ',
+  'ウインナーコーヒー',
+  '魚ミンチ',
+  'コーンナゲット',
+  'まぐろ角煮',
+  'サメヒレ',
+  '地鶏卵',
+  '牛乳',
+  '牛蒡',
+  '鶏卵',
+  'カモミール',
+  'トレハロース',
+  'スクロース',
+  'ローステッドオニオン',
+  'フカヒレ',
+  'ミノ酸',
+  'アミノ酸',
+]) {
+  const f = analyzeLayered(getCuratedIndex(), getCatalogIndex(), name)[0];
+  const id = f?.match?.entry.id ?? '';
+  check(
+    `[ver7] ${name} is not meat`,
+    ['rule:meat-cut', 'rule:pork', 'rule:chicken', 'rule:beef', 'rule:lamb'].includes(id),
+    false
+  );
+}
+// A mixed list with any meat item must never produce a green banner.
+for (const list of [
+  '砂糖、食塩、豚の生姜焼き',
+  '砂糖、食塩、豚モモ肉',
+  '砂糖、食塩、煮豚',
+  '砂糖、食塩、鶏白湯',
+  '砂糖、食塩、牛丼',
+]) {
+  const findings = analyzeLayered(getCuratedIndex(), getCatalogIndex(), list).filter((f) => f.match);
+  const counts: Record<HalalStatus, number> = { haram: 0, syubhat: 0, halal: 0, unknown: 0 };
+  for (const f of findings) counts[effectiveStatus(f.match!.entry)] += 1;
+  const banner = computeVerdictBanner({
+    haram: counts.haram,
+    syubhat: counts.syubhat,
+    halal: counts.halal,
+    unknown: counts.unknown,
+    matched: findings.length,
+    lowQuality: false,
+  });
+  check(`[ver7] banner not green: ${list}`, banner.tone === 'ok', false);
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);

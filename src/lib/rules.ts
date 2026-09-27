@@ -188,8 +188,13 @@ export const CURATION_RULES: CurationRule[] = [
       /豚スペアリブ/, /豚足/, /豚ハツ/, /豚ホルモン/, /豚もつ/, /豚軟骨/, /豚テール/, /豚首/, /豚頬/,
       // Verifier round 6: these common pork names produced no finding at all and
       // the banner went green beside halal items.
-      /豚トロ/, /豚ミノ/, /豚ガツ/, /豚角煮/, /豚の角煮/, /焼き豚/, /焼豚/, /豚汁/, /とんかつ/,
-      /豚カツ/, /トンカツ/, /猪肉/, /スパム/,
+      /豚トロ/, /豚ミノ/, /豚ガツ/, /豚角煮/, /豚の角煮/, /焼き豚/, /焼豚/, /豚汁/,
+      /とんかつ(?!ソース)/, /豚カツ(?!ソース)/, /トンカツ/, /猪肉/, /スパム/,
+      // Verifier round 7: ANY token containing 豚 is pork — without this, dishes
+      // were shadowed by halal sub-words (豚の生姜焼き -> rule:ginger halal,
+      // 豚のりんご煮 -> rule:seaweed). 海豚 (dolphin) and 河豚 (pufferfish) are
+      // seafood, not pork.
+      /(?<![海河])豚/,
     ],
     reasoning: 'Berasal dari babi (daging/lemak/ekstrak). Haram secara eksplisit.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
@@ -466,7 +471,9 @@ export const CURATION_RULES: CurationRule[] = [
       // Meat cuts (verifier round 5: 鶏もも肉 fell through to the peach rule).
       /鶏もも/, /鶏ひき/, /鶏挽/, /鶏レバー/, /鶏手羽/, /鶏むね/, /鶏胸/, /鶏皮/, /鶏軟骨/, /鶏もつ/, /鶏ハツ/, /鶏テール/,
       // Verifier round 6: more poultry names that produced no finding.
-      /地鶏/, /鴨肉/, /合鴨/, /焼き鳥/, /やきとり/, /砂肝/, /ぼんじり/],
+      /地鶏(?!卵)/, /鴨肉/, /鴨鍋/, /合鴨/, /カモ(?!ミール)/, /焼き鳥/, /焼鳥/, /やきとり/, /砂肝/, /ぼんじり/,
+      // Verifier round 7: any chicken token, but never 鶏卵 (egg, halal).
+      /鶏(?!卵)/],
     reasoning: 'Daging ayam halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa logo/sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -478,7 +485,9 @@ export const CURATION_RULES: CurationRule[] = [
     category: 'animal',
     patterns: [/ビーフ/, /牛肉/, /牛脂/, /ヘット/, /牛舌/, /牛タン/,
       // Meat cuts. NB: never bare /牛/ — it matches 牛乳 (milk) and 牛蒡 (burdock).
-      /牛もも/, /牛ひき/, /牛挽/, /牛レバー/, /牛バラ/, /牛肩/, /牛ロース/, /牛ヒレ/, /牛すね/, /牛テール/, /牛軟骨/, /牛もつ/, /牛ハツ/],
+      /牛もも/, /牛ひき/, /牛挽/, /牛レバー/, /牛バラ/, /牛肩/, /牛ロース/, /牛ヒレ/, /牛すね/, /牛テール/, /牛軟骨/, /牛もつ/, /牛ハツ/,
+      // Verifier round 7: 牛丼/牛スジ/牛ステーキ etc. still fell through.
+      /牛(?!乳|蒡|脂)/],
     reasoning: 'Daging/lemak sapi halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -489,7 +498,9 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'medium',
     category: 'animal',
     // NB: never bare /ラム/ — it matches グラム (gram). Require a meat context.
-    patterns: [/ラム肉/, /ラムチョップ/, /羊肉/, /マトン/, /羊もも/, /ラムもも/, /羊肩/, /ラム肩/],
+    patterns: [/ラム肉/, /ラムチョップ/, /羊肉/, /マトン/, /羊もも/, /ラムもも/, /羊肩/, /ラム肩/,
+      // Verifier round 7: bare 羊 except 羊羹 (a sweet, not meat).
+      /羊(?!羹)/],
     reasoning: 'Daging kambing/domba halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -505,17 +516,20 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'medium',
     category: 'animal',
     patterns: [
-      /ひき肉/, /挽肉/, /びき肉/, /挽き肉/, /合い?びき肉/, /合い?挽き肉/, /メンチ/, /ミンチ/,
+      /ひき肉/, /挽肉/, /びき肉/, /挽き肉/, /合い?びき肉/, /合い?挽き肉/, /メンチ/, /(?<!魚)(?<!フィッシュ)ミンチ(?!カツ)/,
       /レバー/, /レバ刺し/, /スペアリブ/, /バラ肉/, /もも肉/, /肩ロース/,
+      // Verifier round 7: katakana cut forms and dish names produced no finding.
+      /モモ肉/, /スネ肉/, /ムネ肉/, /モツ/, /モツ鍋/, /焼肉/, /肉まん/, /肉団子/, /餃子/, /焼売/,
+      /ジビエ/, /カツ(?!オ)/,
       // ロース needs a meat/cut context AND must not match ローステッド (roasted):
       // a bare pattern also catches the -ose sugars トレハロース and スクロース
-      // (verifier rounds 5-6).
-      /(^|肩|ヒレ|もも|バラ|肉|豚|鶏|牛|羊|ラム)ロース(?!ト|テ|タ)/,
-      // ヒレ: shark fin (フカヒレ) is seafood, not meat.
-      /(?<!フカ)ヒレ/, /ヒレカツ/,
-      /手羽/, /ささみ/, /もつ/, /ホルモン/, /ハラミ/, /ミノ(?!酸)/, /ガツ/, /ハチノス/, /センマイ/, /ギアラ/,
-      /角煮/, /背脂/, /アキレス腱/, /すね肉/, /肩肉/, /胸肉/, /シンタマ/, /ウデ肉/,
-      /フランクフルト/, /ウインナー/, /ナゲット/, /サラミ/,
+      // (verifier rounds 5-6). リブ covers リブロース (round 7).
+      /(^|肩|ヒレ|もも|バラ|肉|豚|鶏|牛|羊|ラム|リブ)ロース(?!ト|テ|タ)/,
+      // ヒレ: shark fin (フカヒレ) and fish fins are seafood, not meat.
+      /(?<!フカ)(?<!サメ)(?<!オ)ヒレ/, /ヒレカツ/,
+      /手羽/, /ささみ/, /もつ/, /ホルモン/, /ハラミ(?!ツ)/, /ミノ(?!酸)/, /ガツ(?!オ)/, /ハチノス/, /センマイ/, /ギアラ/,
+      /(?<!まぐろ)(?<!マグロ)角煮/, /背脂/, /アキレス腱/, /すね肉/, /肩肉/, /胸肉/, /シンタマ/, /ウデ肉/,
+      /フランクフルト/, /(?<!フィッシュ)(?<!魚)(?<!コーン)ウインナー(?!コーヒー)/, /(?<!フィッシュ)(?<!魚)(?<!コーン)ナゲット/, /サラミ/,
     ],
     reasoning:
       'Potongan daging (sapi/ayam/kambing) tidak bisa dipastikan halal tanpa sertifikasi penyembelihan; syubhat.',
