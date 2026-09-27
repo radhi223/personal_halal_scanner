@@ -14,6 +14,19 @@ import { normalize } from './normalize';
 type CitationMap = Record<string, { orgs: string[] }>;
 const addiCitations = addiRaw as unknown as CitationMap;
 
+/**
+ * Names that look alcoholic. Open Food Facts' `vegan=yes` signal only says the
+ * ingredient is plant/microbial — it says NOTHING about fermentation alcohol.
+ * A vegan-labelled wine/sake/beer is still khamr, so the origin signal must
+ * never upgrade such a name to "halal"; it is left unknown for human review
+ * instead. (This is a name-level guard, deliberately conservative.)
+ */
+const ALCOHOLIC_NAME_RE = /(酒|ワイン|wine|ビール|beer|リキュール|ブランデー|ウォッカ)/i;
+
+function looksAlcoholic(names: string[]): boolean {
+  return names.some((n) => ALCOHOLIC_NAME_RE.test(normalize(n)));
+}
+
 /** ADDI/ITS provenance string for a set of names, or null. Citation only. */
 function citationFor(names: string[]): string | null {
   const orgs = new Set<string>();
@@ -60,7 +73,9 @@ export function loadCatalog(): { version: string; entries: IngredientEntry[] } {
     const citation = citationFor(e.names);
     const sources = citation ? [offSource, citation] : [offSource];
 
-    if (e.src === 'tax' && e.vegan === 'yes') {
+    // Never let a vegan origin-signal grant halal to an alcoholic-looking name
+    // (セパージュワイン, 日本酒, beer, …): vegan describes ingredients, not khamr.
+    if (e.src === 'tax' && e.vegan === 'yes' && !looksAlcoholic(e.names)) {
       return {
         id: `catalog:${e.id}`,
         names: e.names,

@@ -771,5 +771,44 @@ check('[fix35] 米酒 rule id', verdict30('米酒').id, 'rule:rice-wine');
 check('[fix35] 白酒 rule id', verdict30('白酒').id, 'rule:baijiu');
 check('[fix35] 豚生姜焼 rule id', verdict30('豚生姜焼').id, 'rule:pork');
 
+// 36. Final audit round: alcohol correctness (fruit wine, sparkling/varietal
+// wine, beer/spirits vocabulary), margarine/butter shadowing, chicken-frame
+// extracts, and the fuzzy-curated-vs-rule ordering fix.
+const FIX36: [string, string][] = [
+  ['果実酒', 'haram'],
+  ['果実酒類', 'haram'],
+  ['セパージュワイン', 'haram'],
+  ['スパークリングワイン', 'haram'],
+  ['ビール', 'haram'],
+  ['発泡酒', 'haram'],
+  ['ウォッカ', 'haram'],
+  ['ブランデー', 'haram'],
+  ['甘酒', 'syubhat'],
+  ['バター入りマーガリン', 'syubhat'],
+  ['麦芽エキス', 'halal'],
+  ['昆布エキス', 'halal'],
+  ['鰹エキス', 'halal'],
+  ['紅茶エキス', 'halal'],
+  ['ワイン', 'haram'], // non-regression
+  ['豚肉エキス', 'haram'], // non-regression
+  ['麦芽', 'halal'], // non-regression
+];
+for (const [raw, status] of FIX36) {
+  check(`[fix36] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check(
+  '[fix36] 鶏がらスープパウダー NOT halal',
+  verdict30('鶏がらスープパウダー').status !== 'halal',
+  true
+);
+check('[fix36] 野菜エキス NOT haram', notHaram('野菜エキス'), true);
+check('[fix36] ワイン酢 NOT haram', notHaram('ワイン酢'), true);
+check('[fix36] ぶどう NOT haram', notHaram('ぶどう'), true);
+check('[fix36] ビール rule id', verdict30('ビール').id, 'rule:beer');
+check('[fix36] 甘酒 rule id', verdict30('甘酒').id, 'rule:amazake');
+check('[fix36] 果実酒 rule id', verdict30('果実酒').id, 'rule:sweet-fruit-wine');
+check('[fix36] セパージュワイン curated wine id', verdict30('セパージュワイン').id, 'wine');
+check('[fix36] 麦芽エキス rule id', verdict30('麦芽エキス').id, 'rule:malt');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

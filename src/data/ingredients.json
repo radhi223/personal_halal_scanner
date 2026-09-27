@@ -69,7 +69,7 @@
     },
     {
       "id": "wine",
-      "names": ["ワイン", "ぶどう酒", "葡萄酒", "wine", "赤ワイン", "白ワイン", "ロゼワイン", "ローズワイン", "ワイン類"],
+      "names": ["ワイン", "ぶどう酒", "葡萄酒", "wine", "赤ワイン", "白ワイン", "ロゼワイン", "ローズワイン", "ワイン類", "セパージュワイン", "スパークリングワイン"],
       "status": "haram",
       "category": "alcohol",
       "reasoning": "Anggur/memabukkan termasuk khamr, haram.",

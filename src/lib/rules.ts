@@ -79,9 +79,52 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'haram',
     confidence: 'high',
     category: 'alcohol',
-    // Must precede the generic halal /果実/ (fruit) rule.
-    patterns: [/甘味果実酒/],
-    reasoning: '甘味果実酒 (sweet fruit wine) berbasis fermentasi buah/anggur, termasuk khamr, haram.',
+    // Must precede the generic halal /果実/ (fruit) rule: 果実酒/果実酒類 are
+    // fermented fruit wine (khamr), NOT plain fruit.
+    patterns: [/果実酒/],
+    reasoning:
+      '果実酒/果実酒類/甘味果実酒 (fruit wine) adalah hasil fermentasi buah/anggur dan termasuk khamr, haram.',
+    sources: ["QS Al-Maa'idah 5:90", LPPOM],
+  },
+  {
+    id: 'amazake',
+    label: 'Amazake / 甘酒',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'alcohol',
+    // Placed BEFORE the `beer` haram rule: low-alcohol amazake is debated, so it
+    // resolves syubhat rather than haram.
+    patterns: [/甘酒/],
+    reasoning:
+      '甘酒 (amazake) beralkohol rendah; sebagian produk hampir bebas alkohol, sebagian berfermentasi. Statusnya diperdebatkan, syubhat. (Berasnya sendiri halal.)',
+    sources: ["QS Al-Maa'idah 5:90 (khamr)", LPPOM, JAKIM],
+  },
+  {
+    id: 'beer',
+    label: 'Beer / ビール',
+    status: 'haram',
+    confidence: 'high',
+    category: 'alcohol',
+    // Broad alcohol vocabulary: all below are fermented/distilled alcoholic
+    // drinks (khamr). Placed early so it precedes generic plant/seasoning rules.
+    patterns: [
+      /ビール/,
+      /発泡酒/,
+      /リキュール/,
+      /カクテル/,
+      /ハイボール/,
+      /チューハイ/,
+      /ウォッカ/,
+      /ブランデー/,
+      /ウイスキー/,
+      /蒸留酒/,
+      /醸造酒/,
+      /梅酒/,
+      /にごり酒/,
+      /どぶろく/,
+    ],
+    reasoning:
+      'ビール/発泡酒/リキュール/カクテル/ハイボール/チューハイ/ウォッカ/ブランデー/ウイスキー/蒸留酒/醸造酒/梅酒/にごり酒/どぶろく adalah minuman beralkohol (khamr), haram.',
     sources: ["QS Al-Maa'idah 5:90", LPPOM],
   },
   {
@@ -342,7 +385,7 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/],
+    patterns: [/チキン/, /鶏肉/, /とりにく/, /鶏ささみ/, /若鶏/, /鶏がら/, /鶏ガラ/],
     reasoning: 'Daging ayam halal bila disembelih syar\'i, tetapi di Jepang umumnya tidak. Tanpa logo/sertifikasi halal, syubhat.',
     sources: ['QS Al-Baqarah 2:173 (prinsip)', JAKIM],
   },
@@ -440,6 +483,19 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('liquid-sugar', 'Liquid sugar / 液糖', [/液糖/, /果糖/, /ぶどう糖液糖/, /糖漿/, /糖浆/, /果葡糖/], 'sweetener', 'Gula cair / glukosa-fruktosa (HFCS), halal.'),
   halalRule('sugar-variant', 'Sugar / 砂糖', [/沙糖/], 'sweetener', 'Gula (nabati), halal. Varian OCR 沙糖.'),
   halalRule('miso', 'Miso / 味噌', [/味噌/, /みそ/], 'fermented', 'Miso fermentasi kedelai; umumnya halal, waspadai residu alkohol.', 'low'),
+  // Must precede the /バター/ (butter) rule: バター入りマーガリン / マーガリン
+  // contains バター as a substring but is margarine (mixed/possibly animal fat),
+  // so butter-first would wrongly label it halal.
+  {
+    id: 'margarine',
+    label: 'Margarine / マーガリン',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'fat',
+    patterns: [/マーガリン/],
+    reasoning: 'Margarin bisa berbasis lemak hewani (termasuk babi) atau nabati. Perlu verifikasi.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('butter', 'Butter / バター', [/バター/], 'dairy', 'Mentega dari susu, halal.', 'medium'),
   halalRule('cream', 'Cream / クリーム', [/生クリーム/, /クリーム/], 'dairy', 'Krim susu, halal.', 'medium'),
   halalRule('milk-powder', 'Milk powder / 粉乳', [/脱脂粉乳/, /全粉乳/, /全脂乳粉/, /粉乳/], 'dairy', 'Susu bubuk, halal.', 'medium'),
@@ -497,16 +553,6 @@ export const CURATION_RULES: CurationRule[] = [
     patterns: [/着色料/, /色料/],
     reasoning: 'Pewarna generik bisa nabati, sintetis, atau serangga/hewani (mis. cochineal). Perlu verifikasi.',
     sources: ['EFSA — pewarna', LPPOM],
-  },
-  {
-    id: 'margarine',
-    label: 'Margarine / マーガリン',
-    status: 'syubhat',
-    confidence: 'medium',
-    category: 'fat',
-    patterns: [/マーガリン/],
-    reasoning: 'Margarin bisa berbasis lemak hewani (termasuk babi) atau nabati. Perlu verifikasi.',
-    sources: [LPPOM, JAKIM],
   },
   {
     id: 'sauce',
@@ -805,7 +851,10 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('powdered-sugar', 'Powdered sugar / 粉糖', [/粉糖/, /粉砂糖/], 'sweetener', 'Gula bubuk, halal.'),
   halalRule('mochi-flour', 'Mochi flour / もち粉', [/もち粉/], 'grain', 'Tepung mochi, halal.'),
   halalRule('cooked-rice', 'Cooked rice / ご飯', [/ご飯/, /ごはん/], 'grain', 'Nasi, halal.'),
-  halalRule('katsuobushi', 'Katsuobushi / 鰹節', [/鰹節/, /かつお節/], 'animal', 'Ikan cakalang kering, halal (hasil laut).'),
+  // /鰹/ + /かつお/ cover extracts/dashes not caught by the exact curated
+  // 'bonito' entry (e.g. 鰹エキス) and keep them halal instead of falling to the
+  // generic エキス syubhat rule.
+  halalRule('katsuobushi', 'Katsuobushi / 鰹節', [/鰹節/, /かつお節/, /鰹/, /かつお/], 'animal', 'Ikan cakalang kering, halal (hasil laut).'),
   halalRule('leucine', 'Leucine / ロイシン', [/ロイシン/], 'additive', 'Leusin (asam amino), halal.'),
   halalRule('valine', 'Valine / バリン', [/バリン/], 'additive', 'Valin (asam amino), halal.'),
   halalRule('drinking-water', 'Drinking water / 飲用水', [/饮用水/, /飲用水/], 'mineral', 'Air minum, halal.'),

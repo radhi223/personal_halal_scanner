@@ -166,8 +166,16 @@ export function analyzeLayered(
   const findings = extractCandidates(text).map((raw) => {
     const normalized = normalize(raw);
 
+    // Priority: exact curated > rules > fuzzy curated > catalog.
+    //
+    // A curated EXACT hit is authoritative and always wins (e.g. 酵母エキス
+    // halal must not be caught by the generic エキス rule). A curated FUZZY hit,
+    // however, is only approximate — if an explicit keyword rule matches the same
+    // token, the rule (a real verdict) takes precedence over it. This stops e.g.
+    // 麦芽エキス from fuzzy-matching a curated entry when the explicit /麦芽/
+    // rule applies. Rules still beat the catalog, which only knows the name.
     let match = matchNormalized(curated, normalized);
-    if (!match) {
+    if (!match || match.kind === 'fuzzy') {
       const rule = matchRule(normalized);
       if (rule) match = ruleToMatch(rule, raw);
     }
