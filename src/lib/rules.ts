@@ -76,15 +76,18 @@ export const CURATION_RULES: CurationRule[] = [
     sources: ['QS Al-Baqarah 2:173', LPPOM],
   },
   // --- safety-critical negatives FIRST (before every plant/veg rule) ---------
+  // Graham flour (グラハム) contains ハム, so this halal rule MUST precede the
+  // ham rule below or graham would be flagged haram.
+  halalRule('graham', 'Graham / グラハム', [/グラハム/], 'grain', 'Tepung graham (gandum utuh), nabati, halal.'),
   {
     id: 'ham',
     label: 'Ham / ハム',
     status: 'haram',
     confidence: 'high',
     category: 'animal',
-    // Negative lookahead avoids ハムスター (hamster) / ハムレット (Hamlet) while
-    // still catching ハム / ロースハム / ハム玉葱入りドレッシング.
-    patterns: [/ハム(?!ス|レ)/],
+    // Negative lookahead avoids only ハムスター (hamster) / ハムレット (Hamlet);
+    // ハムスライス/ハムステーキ/ハムカツ etc. ARE ham and must resolve haram.
+    patterns: [/ハム(?!スター|レット)/],
     reasoning: 'Ham hampir selalu dari daging babi. Haram.',
     sources: ['QS Al-Baqarah 2:173', LPPOM],
   },
@@ -105,11 +108,11 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'medium',
     category: 'fat',
     // MUST precede veg-oil (/植物油/) — 動植物油脂 contains 植物油 as a substring.
-    patterns: [/動植物油脂/, /動植物油/, /動物油脂/, /動物性油脂/, /動物性脂肪/],
+    patterns: [/動植物油脂/, /動植物性油脂/, /動植物油/, /動物油脂/, /動物性油脂/, /動物性脂肪/],
     reasoning: 'Lemak "nabati+hewani" (動植物油脂) memuat lemak hewani tanpa keterangan spesies/sembelihan syar\'i. Syubhat.',
     sources: [LPPOM, JAKIM],
   },
-  halalRule('hydrolyzed-yeast', 'Hydrolyzed yeast / 加水分解酵母', [/加水分解酵母/], 'additive', 'Ragi terhidrolisis, halal.'),
+  halalRule('hydrolyzed-yeast', 'Hydrolyzed yeast / 加水分解酵母', [/加水分解酵母/, /酵母加水分解物/], 'additive', 'Ragi terhidrolisis, halal.'),
   {
     id: 'hydrolyzed-protein',
     label: 'Hydrolyzed protein / たん白加水分解物',
@@ -329,7 +332,7 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'halal',
     confidence: 'medium',
     category: 'animal',
-    patterns: [/卵/, /たまご/, /玉子/, /鶏卵/],
+    patterns: [/卵/, /たまご/, /玉子/, /鶏卵/, /鸡蛋/, /蛋黃/, /蛋黄/],
     reasoning: 'Telur halal.',
     sources: ['LPPOM MUI — turunan hewani halal', JAKIM],
   },

@@ -417,6 +417,17 @@
       "category": "alcohol",
       "reasoning": "発酵調味料 (bumbu fermentasi) sering berbasis beras/mirin dan mengandung alkohol. Perlu verifikasi.",
       "sources": ["LPPOM MUI — produk fermentasi", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "glutamate",
+      "names": ["グルタミン酸", "グルタミン酸Na", "グルタミン酸ナトリウム", "MSG", "グルタミン酸カルシウム"],
+      "status": "halal",
+      "confidence": "high",
+      "basis": "fiqh-rule",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Asam glutamat / MSG (E620/E621) diproduksi melalui fermentasi mikroba (bukan dari hewani), sehingga halal. Curated agar tidak salah dipetakan ke 'カルミン酸' (karmin) secara fuzzy.",
+      "sources": ["EFSA — E620/E621", "LPPOM MUI — bahan mikroba"]
     }
   ]
 }

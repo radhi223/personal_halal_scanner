@@ -643,5 +643,34 @@ for (const keep of ['乳化剤', '香料', '着色料']) {
   check(`[fix32] not noise: ${keep}`, isLabelNoise(normalize(keep)), false);
 }
 
+// 33. Verifier round 2: ham substring forms, graham, 蛋/蛋白 fold removal,
+// animal/plant fat wording, glutamate curation, hydrolyzed yeast, freeze-dried.
+const FIX33: [string, string][] = [
+  ['ハムスライス', 'haram'],
+  ['ハムステーキ', 'haram'],
+  ['生ハム', 'haram'],
+  ['グラハム', 'halal'],
+  ['蛋白加水分解物', 'syubhat'],
+  ['動植物性油脂', 'syubhat'],
+  ['グルタミン酸', 'halal'],
+  ['グルタミン酸Na', 'halal'],
+  ['酵母加水分解物', 'halal'],
+  ['植物油脂', 'halal'], // non-regression
+  ['ハム', 'haram'], // non-regression
+  ['糖アルコール', 'halal'], // non-regression
+];
+for (const [raw, status] of FIX33) {
+  check(`[fix33] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[fix33] ハムスター NOT haram', verdict30('ハムスター').status !== 'haram', true);
+check('[fix33] 動植物蛋白 NOT halal', verdict30('動植物蛋白').status !== 'halal', true);
+check('[fix33] 蛋白質 NOT halal', verdict30('蛋白質').status !== 'halal', true);
+check('[fix33] グルタミン酸 curated id', verdict30('グルタミン酸').id, 'glutamate');
+check('[fix33] 酵母加水分解物 rule id', verdict30('酵母加水分解物').id, 'rule:hydrolyzed-yeast');
+check('[fix33] フリーズドライ NOT noise', isLabelNoise(normalize('フリーズドライ')), false);
+check('[fix33] noise: カフェインフリー', isLabelNoise(normalize('カフェインフリー')), true);
+check('[fix33] noise: グルテンフリー', isLabelNoise(normalize('グルテンフリー')), true);
+check('[fix33] noise: 糖類フリー', isLabelNoise(normalize('糖類フリー')), true);
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
