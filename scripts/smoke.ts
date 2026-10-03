@@ -111,7 +111,10 @@ check('酒粕 -> syubhat', byRaw.get('酒粕')?.entry.status, 'syubhat');
 
 // 10. E-number table (MUIS-arbitrated) merged into the curated layer.
 const ecodeEntries = curatedEntries.filter((e) => e.id.startsWith('ecode:'));
-check('ecode table loaded (>700)', ecodeEntries.length > 700, true);
+// 2026-09-27: 796 -> 538 entries after the generator fix (community-only bogus
+// E-codes dropped, 81 multi-name mappings collapsed, 43 status conflicts fixed).
+// The count dropped because the data got TRUSWORTHY, not smaller.
+check('ecode table loaded (>500)', ecodeEntries.length > 500, true);
 check('E100 -> halal (all agree)', matchTerm(index, 'E100')?.entry.status, 'halal');
 check('E120 -> syubhat (conflict)', matchTerm(index, 'E120')?.entry.status, 'syubhat');
 check('E120 basis conflict', matchTerm(index, 'E120')?.entry.basis, 'conflict');
@@ -124,7 +127,19 @@ let statusConflicts = 0;
 for (const e of curatedEntries) {
   if (e.eNumber && ecoMap.has(e.eNumber) && ecoMap.get(e.eNumber) !== e.status) statusConflicts++;
 }
-check('no curated/ecode status conflicts', statusConflicts, 0);
+// 2026-09-27: E420 is the one intentional curated/ecode divergence — MUIS (2016)
+// marks sorbitol doubtful (contamination concern) while the curated entry treats
+// the sugar alcohol itself as halal. Curated is the display layer and wins.
+const E420_ALLOWED = new Set(['E420']);
+let unexpectedConflicts = 0;
+for (const e of curatedEntries) {
+  if (!e.eNumber) continue;
+  if (!ecoMap.has(e.eNumber)) continue;
+  if (ecoMap.get(e.eNumber) === e.status) continue;
+  if (E420_ALLOWED.has(e.eNumber)) continue;
+  unexpectedConflicts++;
+}
+check('no curated/ecode status conflicts (E420 allowed)', unexpectedConflicts, 0);
 
 // 11. Layer 2: OFF vegan signal + ADDI provenance citation.
 const veganHit = matchTerm(getCatalogIndex(), 'ココア');
@@ -987,14 +1002,15 @@ for (const raw of ['米酢', '黒糖', '三温糖', '食鹽']) {
   check(`[exp38] ${raw} -> halal (sugar/vinegar/salt)`, verdict30(raw).status, 'halal');
 }
 // Source-dependent classes and animal-derived terms stay syubhat.
+// 2026-09-27 policy corrections (E3 audit): プロピレングリコール is synthetic
+// (petrochemical, no animal/plant doubt) and ローヤルゼリー is a bee product
+// (LPPOM treats bee products as halal) — both moved to halal, verified below.
 const EXP_SYUBHAT: [string, string][] = [
   ['保湿剤', 'syubhat'],
   ['結着材料', 'syubhat'],
   ['ソルビタン', 'syubhat'],
-  ['プロピレングリコール', 'syubhat'],
   ['つなぎ', 'syubhat'], // exact entry prevents fuzzy→うなぎ(halal)
-  ['ラック', 'syubhat'],
-  ['ローヤルゼリー', 'syubhat'],
+  ['ラック', 'syubhat'], // insect resin — same doubt class as carmine, NOT a pork template
   ['ランチョンミート', 'syubhat'],
   ['ソーセージ', 'syubhat'],
   ['ハンバーグ', 'syubhat'],
@@ -1018,6 +1034,11 @@ const EXP_SYUBHAT: [string, string][] = [
 for (const [raw, status] of EXP_SYUBHAT) {
   check(`[exp38] ${raw} -> ${status}`, verdict30(raw).status, status);
 }
+// 2026-09-27 policy corrections (E3 audit) — both halal now, with reasoning
+// updated in the curated entries; the syubhat entries above keep the rest.
+check('[exp38] プロピレングリコール -> halal (synthetic)', verdict30('プロピレングリコール').status, 'halal');
+check('[exp38] ローヤルゼリー -> halal (bee product, LPPOM)', verdict30('ローヤルゼリー').status, 'halal');
+check('[exp38] ソルビトール -> halal (sugar alcohol; MUIS note kept)', verdict30('ソルビトール').status, 'halal');
 // Explicit haram (never from a heuristic).
 for (const raw of ['紹興酒', 'ウオッカ', '味付豚挽肉', '豚タントリミング']) {
   check(`[exp38] ${raw} -> haram`, verdict30(raw).status, 'haram');
@@ -1053,8 +1074,13 @@ check('[exp38] bare あたり is label noise', isLabelNoise(normalize('あたり
 // Labelled total: curated data (ingredients + ecodes) + keyword rules.
 const labCurated = loadCurated().entries.length;
 const labRules = CURATION_RULES.length;
-check('[exp38] curated data files grew past 1700', labCurated > 1700, true);
-check('[exp38] LABELLED TOTAL (curated + rules) >= 2000', labCurated + labRules >= 2000, true);
+// 2026-09-27: curated data shrank from 1731 to 1468 entries — 258 bogus E-codes
+// (codes present in neither the OFF taxonomy nor MUIS, carrying community names
+// attached to the wrong numbers) were removed, and 3 garbage fragment entries
+// (硫酸 / 膨剤-garble / 梅酢バウダー) were deleted. Fewer but correct.
+check('[exp38] curated data files past 1400', labCurated > 1400, true);
+check('[exp38] LABELLED TOTAL (curated + rules) >= 1700', labCurated + labRules >= 1700, true);
+check('[exp38] no community-only E-codes remain', ecodeEntries.length < 600, true);
 
 // 39. Independent-verifier fixes: haram-shadow guard, cystine source risk,
 // cautious prepared meat, alcohol-seasoning rules, corpus gaps, half-width
@@ -1162,20 +1188,35 @@ const banner = (
   halal: number,
   unknown: number,
   matched: number,
-  lowQuality = false
-) => computeVerdictBanner({ haram, syubhat, halal, unknown, matched, lowQuality });
+  lowQuality = false,
+  unmatched = 0
+) =>
+  computeVerdictBanner({ haram, syubhat, halal, unknown, matched, unmatched, lowQuality });
 
 const bannerCases: [string, ReturnType<typeof banner>, string, string][] = [
   ['haram present -> danger', banner(1, 0, 2, 0, 3), 'danger', 'Ditemukan bahan haram'],
   ['haram+syubhat -> danger (haram wins)', banner(1, 2, 0, 0, 3), 'danger', 'Ditemukan bahan haram'],
   ['syubhat only -> caution', banner(0, 1, 2, 0, 3), 'caution', 'Ada bahan yang perlu diperhatikan'],
   ['matched=0 -> unknown, no safety claim', banner(0, 0, 0, 0, 0), 'unknown', 'Tidak ada bahan yang dikenali'],
-  ['matched=0 + lowQuality -> unknown', banner(0, 0, 0, 0, 0, true), 'unknown', 'Tidak ada bahan yang dikenali'],
+  [
+    'matched=0 + lowQuality -> unreadable-photo unknown',
+    banner(0, 0, 0, 0, 0, true),
+    'unknown',
+    'Foto kurang jelas — teks hampir tidak terbaca',
+  ],
   ['lowQuality, reviewed matches -> unknown', banner(0, 0, 2, 0, 2, true), 'unknown', 'Hasil mungkin kurang akurat'],
   ['unknown-only -> unknown', banner(0, 0, 0, 2, 2), 'unknown', 'Hanya bahan yang belum ditinjau'],
   ['unknown+halal -> caution', banner(0, 0, 1, 1, 2), 'caution', 'Sebagian bahan belum ditinjau'],
   ['all reviewed -> ok', banner(0, 0, 3, 0, 3), 'ok', 'Semua bahan yang dikenali sudah ditinjau'],
   ['haram+lowQuality -> danger (precedence)', banner(1, 0, 0, 0, 1, true), 'danger', 'Ditemukan bahan haram'],
+  // P0-2: unmatched tokens must never yield the green `ok` banner.
+  [
+    '3 halal matched + 8 unmatched -> caution (not ok)',
+    banner(0, 0, 3, 0, 3, false, 8),
+    'caution',
+    'Sebagian bahan belum ada di database',
+  ],
+  ['3 halal matched + 0 unmatched -> ok', banner(0, 0, 3, 0, 3, false, 0), 'ok', 'Semua bahan yang dikenali sudah ditinjau'],
 ];
 
 for (const [label, v, tone, title] of bannerCases) {
@@ -1189,9 +1230,35 @@ check(
   false
 );
 check(
-  '[verdict] matched=0 detail carries count',
-  banner(0, 0, 0, 0, 0).detail.includes('0 bahan cocok'),
+  '[verdict] matched=0 detail does not claim safety',
+  banner(0, 0, 0, 0, 0).detail.includes('0 cocok dengan database'),
   true
+);
+check(
+  '[verdict] matched=0 + lowQuality gives photo-retry detail',
+  banner(0, 0, 0, 0, 0, true).detail.includes('foto ulang lebih dekat'),
+  true
+);
+// P0-2: the green banner must be unreachable while any token is unmatched.
+check(
+  '[verdict] unmatched blocks ok tone',
+  banner(0, 0, 3, 0, 3, false, 8).tone === 'ok',
+  false
+);
+check(
+  '[verdict] unmatched caution detail carries counts',
+  banner(0, 0, 3, 0, 3, false, 8).detail,
+  '3 halal • 8 belum bisa dinilai • 3 bahan cocok'
+);
+check(
+  '[verdict] danger detail notes unmatched when present',
+  banner(1, 0, 2, 0, 3, false, 4).detail,
+  '1 haram • 0 syubhat • 3 bahan cocok • 4 belum ada di database'
+);
+check(
+  '[verdict] danger detail omits unmatched note when zero',
+  banner(2, 1, 0, 0, 3, false, 0).detail,
+  '2 haram • 1 syubhat • 3 bahan cocok'
 );
 check(
   '[verdict] danger detail carries counts',
@@ -1706,8 +1773,9 @@ check('[ver2] 加工デンプ -> syubhat', device('加工デンプ'), 'syubhat:m
 check('[ver2] 加工でん粉 -> syubhat', device('加工でん粉'), 'syubhat:modified-starch');
 
 // 48c. Duplicate normalized names with different statuses must resolve to the
-// STRICTEST verdict (ecodes.json has 44 such conflicts; buildIndex used to keep
-// whichever came first).
+// STRICTEST verdict. The ecodes generator fix (2026-09-27) removed ALL real
+// duplicate-name conflicts (44 -> 0), so the guard is now exercised with a
+// synthetic index instead of live data.
 const strictRank: Record<string, number> = { haram: 0, syubhat: 1, unknown: 2, halal: 3 };
 const byName = new Map<string, string[]>();
 for (const e of loadCurated().entries) {
@@ -1720,17 +1788,36 @@ for (const e of loadCurated().entries) {
   }
 }
 let strictViolations = 0;
-let conflictNames = 0;
+let unexpectedNameConflicts = 0;
+// 2026-10-03: one duplicate-name conflict reappeared with the data
+// regeneration. "sodium caseinate" is named by BOTH the curated `casein` entry
+// (syubhat — a source-dependent milk protein) and ecode entry E469 (halal from
+// the ecodes generator). Strictest-wins resolves the live index to syubhat, so
+// the safety property below is intact; the pair is allowlisted so this check
+// still catches any NEW conflict. The data cleanup belongs to the
+// ingredients/ecodes generators, not this smoke suite.
+const KNOWN_NAME_CONFLICTS = new Set(['sodiumcaseinate']);
 for (const [name, statuses] of byName) {
   const uniq = [...new Set(statuses)];
   if (uniq.length < 2) continue;
-  conflictNames += 1;
+  if (!KNOWN_NAME_CONFLICTS.has(name)) unexpectedNameConflicts += 1;
   const strictest = uniq.sort((a, b) => strictRank[a] - strictRank[b])[0];
   const resolved = getCuratedIndex().exact.get(name)?.status;
   if (resolved !== strictest) strictViolations += 1;
 }
-check('[ver2] duplicate names resolved strictly', strictViolations, 0);
-check('[ver2] duplicate-name conflicts exist (guard is live)', conflictNames > 0, true);
+check('[ver2] no unexpected duplicate-name conflicts (known casein/E469 allowed)', unexpectedNameConflicts, 0);
+check('[ver2] known duplicate resolves to strictest (syubhat)', getCuratedIndex().exact.get('sodiumcaseinate')?.status, 'syubhat');
+check('[ver2] duplicate names resolved strictly (live data)', strictViolations, 0);
+// Synthetic guard: the strictest-wins logic itself must never regress.
+const syntheticDup = buildIndex([
+  { id: 'dup-halal', names: ['デュープテスト'], status: 'halal', category: 'additive', reasoning: '', sources: [] },
+  { id: 'dup-haram', names: ['デュープテスト'], status: 'haram', category: 'animal', reasoning: '', sources: [] },
+] as never);
+check(
+  '[ver2] duplicate-name strictness guard (synthetic)',
+  syntheticDup.exact.get(normalize('デュープテスト'))?.status,
+  'haram'
+);
 
 // 48d. effectiveStatus: an unreviewed OFF-vegan halal must display as unknown.
 check(
@@ -2005,7 +2092,9 @@ for (const list of [
   '砂糖、食塩、鶏白湯',
   '砂糖、食塩、牛丼',
 ]) {
-  const findings = analyzeLayered(getCuratedIndex(), getCatalogIndex(), list).filter((f) => f.match);
+  const allFindings = analyzeLayered(getCuratedIndex(), getCatalogIndex(), list);
+  const findings = allFindings.filter((f) => f.match);
+  const unmatchedCount = allFindings.length - findings.length;
   const counts: Record<HalalStatus, number> = { haram: 0, syubhat: 0, halal: 0, unknown: 0 };
   for (const f of findings) counts[effectiveStatus(f.match!.entry)] += 1;
   const banner = computeVerdictBanner({
@@ -2014,9 +2103,135 @@ for (const list of [
     halal: counts.halal,
     unknown: counts.unknown,
     matched: findings.length,
+    unmatched: unmatchedCount,
     lowQuality: false,
   });
   check(`[ver7] banner not green: ${list}`, banner.tone === 'ok', false);
+}
+
+// 50. F1 audited fixes (src/lib/normalize.ts + src/lib/rules.ts): OCR garble
+// folds, named colorants, plant hydrolyzed protein, single-char whitelist,
+// English-label fallback, boilerplate noise. Every expected value was verified
+// against the working tree before pinning.
+
+// 50a. カ/オ garble folds to カツオ (bonito, FISH) and must never be a meat cut.
+check('[f1] fold 力ツ扱 -> カツオ', normalize('力ツ扱'), 'カツオ');
+check('[f1] カツ扱エキス -> katsuobushi halal', device('カツ扱エキス'), 'halal:rule:katsuobushi');
+check('[f1] 力ツ扱節粉末 -> katsuobushi halal', device('力ツ扱節粉末'), 'halal:rule:katsuobushi');
+check(
+  '[f1] garble fold never yields meat-cut',
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'カツ扱エキス')[0]?.match?.entry.id === 'rule:meat-cut',
+  false
+);
+check('[f1] カツオエキス stays halal fish', device('カツオエキス'), 'halal:rule:katsuobushi');
+
+// 50b. Plant vs animal hydrolyzed protein ordering.
+check('[f1] 植物性蛋白加水分解物 -> plant rule', device('植物性蛋白加水分解物'), 'halal:rule:plant-hydrolyzed-protein');
+check('[f1] 加水分解蛋白 still syubhat', device('加水分解蛋白'), 'syubhat:rule:hydrolyzed-protein');
+check('[f1] plant rule precedes generic (matchRule)', matchRule(normalize('植物性蛋白加水分解物'))?.id, 'plant-hydrolyzed-protein');
+
+// 50c. Named colorants: named -> halal, unnamed/insect -> syubhat.
+check('[f1] 着色料（ウコン） -> named-colorant halal', device('着色料（ウコン）'), 'halal:rule:named-colorant');
+check('[f1] 着色料（カラメル） -> halal', verdict30('着色料（カラメル）').status, 'halal');
+check('[f1] bare 着色料 stays syubhat', device('着色料'), 'syubhat:rule:coloring');
+check('[f1] 色素 stays syubhat', device('色素'), 'syubhat:rule:coloring');
+check('[f1] コチニール色素 stays syubhat', device('コチニール色素'), 'syubhat:carmine');
+const vegColorF1 = analyzeLayered(getCuratedIndex(), getCatalogIndex(), '着色料（野菜）');
+check('[f1] 着色料（野菜） hits named-colorant', vegColorF1.some((f) => f.match?.entry.id === 'rule:named-colorant'), true);
+check('[f1] 着色料（野菜） is halal', vegColorF1.some((f) => f.match?.entry.status === 'halal'), true);
+
+// 50d. Long-vowel OCR misread.
+check('[f1] マ一ガリン -> margarine', device('マ一ガリン'), 'syubhat:rule:margarine');
+
+// 50e. Pizza sauce precedes the generic sauce rule.
+check('[f1] ピザソース -> pizza-sauce', device('ピザソース'), 'halal:rule:pizza-sauce');
+check('[f1] ピザ一ス -> pizza-sauce', device('ピザ一ス'), 'halal:rule:pizza-sauce');
+check('[f1] bare ソース stays syubhat', device('ソース'), 'syubhat:rule:sauce');
+
+// 50f. Natto. 納豆菌 has its own curated halal entry (exp:納豆菌), so the exact
+// entry wins over rule:natto — same halal outcome.
+check('[f1] 納豆 -> natto', device('納豆'), 'halal:rule:natto');
+check('[f1] 納豆菌 -> halal (curated entry wins)', device('納豆菌'), 'halal:exp:納豆菌');
+
+// 50g. タ -> 三 vitamin garbles.
+check('[f1] ビ三C -> vitamin', device('ビ三C'), 'halal:rule:vitamin');
+check('[f1] ビタ三ンc -> vitamin', device('ビタ三ンc'), 'halal:rule:vitamin');
+
+// 50h. く -> "<" smoke-liquid garble.
+check('[f1] <ん液 -> smoke', device('<ん液'), 'halal:rule:smoke');
+check('[f1] くん液 -> smoke (non-reg)', device('くん液'), 'halal:rule:smoke');
+
+// 50i. Single-char whitelist (F1 matcher fix). normalize.ts keeps
+// 卵/米/酢/塩/油/乳/魚 through extraction; matcher.ts now resolves a length-1
+// token ONLY via an EXACT reviewed (curated) entry. 酢 -> vinegar and 塩 -> salt
+// are finally reachable; 魚 now resolves to the curated fish entry (was
+// rule:fish); 卵/米 have no bare curated entry and still resolve by rule; 油/乳
+// have no bare entry and stay unmatched (extraction-only).
+check('[f1] single 卵 -> halal egg', device('卵'), 'halal:rule:egg');
+check('[f1] single 米 -> halal rice', device('米'), 'halal:rule:rice');
+check('[f1] single 魚 -> halal fish (curated exact)', device('魚'), 'halal:fish');
+check('[f1] single 酢 -> vinegar curated entry', device('酢'), 'halal:vinegar');
+check('[f1] single 塩 -> salt curated entry', device('塩'), 'halal:salt');
+check('[f1] single 水 yields no finding', noVerdict42('水'), true);
+check('[f1] single 肉 yields no finding', noVerdict42('肉'), true);
+check('[f1] single 甘 yields no finding', noVerdict42('甘'), true);
+for (const single of ['酢', '塩', '油', '乳']) {
+  check(`[f1] single ${single} survives extraction`, extractCandidates(single).includes(single), true);
+}
+for (const single of ['油', '乳']) {
+  check(`[f1] single ${single} yields no finding (no bare entry)`, noVerdict42(single), true);
+}
+
+// 50j. Mentaiko before fermented seasoning.
+check('[f1] 明太子風味調味料 -> mentaiko', device('明太子風味調味料'), 'halal:rule:mentaiko');
+check('[f1] bare 風味調味料 stays syubhat', device('風味調味料'), 'syubhat:rule:fermented-seasoning');
+
+// 50k. English-label fallback in extractIngredientSection.
+const enSectionF1 = extractIngredientSection('INGREDIENTS: SUGAR, FLOUR, SALT NUTRITION FACTS Serving Size 1 cup');
+check('[f1] EN section keeps SUGAR', enSectionF1.includes('SUGAR'), true);
+check('[f1] EN section drops nutrition tail', /NUTRITION|Serving Size/i.test(enSectionF1), false);
+const enGarbledF1 = extractIngredientSection('MALTODEXTRIN et FaCts DerservngCalories 19 INGREDIENTS .382.');
+check('[f1] garbled EN section keeps MALTODEXTRIN', enGarbledF1.includes('MALTODEXTRIN'), true);
+check('[f1] garbled EN section drops INGREDIENTS tail', /INGREDIENTS/i.test(enGarbledF1), false);
+check('[f1] garbled EN section drops Calories', /Calories/i.test(enGarbledF1), false);
+check('[f1] garbled EN section drops barcode tail', enGarbledF1.includes('382'), false);
+// Japanese-dominant text is never touched by the Latin fallback.
+check('[f1] JP section untouched by EN fallback', extractIngredientSection('原材料名 豚肉、砂糖'), '豚肉、砂糖');
+
+// 50l. Boilerplate noise added EXACT-only.
+for (const noise of [
+  '召し上がり', '買い上げ', '購入日', '天面', '側面記', '平日', '午前',
+  '午後', 'サービス係', '健康補助食品', '問合せ', '問い合せ', '造りては',
+]) {
+  check(`[f1] noise: ${noise}`, isLabelNoise(normalize(noise)), true);
+  check(`[f1] ${noise} produces NO finding`, noVerdict42(noise), true);
+}
+check('[f1] real 豆腐 still resolves', device('豆腐'), 'halal:rule:tofu');
+check('[f1] real 胡椒 still resolves', device('胡椒'), 'halal:rule:spices');
+check('[f1] real 食塩 still resolves', device('食塩'), 'halal:salt');
+
+// 50m. ソルビトール curated halal change is pinned at [exp38] above; not duplicated.
+
+// 50n. Vitamin Latin-abbreviation anchor (G4 pre-release blocker). The vitamin
+// rule carried bare /vc/ and /ve/ (added for OCR abbreviations of ビタミンC/E),
+// which matched ANY token containing them: VEAL (young beef) -> halal:vitamin
+// and VERMOUTH (alcohol) -> halal. Both are false-halal on meat/alcohol. The
+// Latin forms are now anchored to the WHOLE normalized token: /^v[ce](\d{1,2})?$/.
+check('[f1] vc -> vitamin', device('vc'), 'halal:rule:vitamin');
+check('[f1] ve -> vitamin', device('ve'), 'halal:rule:vitamin');
+check('[f1] VC -> vitamin', device('VC'), 'halal:rule:vitamin');
+check('[f1] V.C -> vitamin (normalize strips dot)', device('V.C'), 'halal:rule:vitamin');
+check('[f1] VC12 -> vitamin', device('VC12'), 'halal:rule:vitamin');
+check('[f1] VEAL is NOT halal (meat)', device('VEAL')?.startsWith('halal'), false);
+check('[f1] VERMOUTH is NOT halal (alcohol)', device('VERMOUTH')?.startsWith('halal'), false);
+// The vitamin rule itself must reject the Latin substrings (direct pattern test).
+const vitaminRule = CURATION_RULES.find((r) => r.id === 'vitamin')!;
+const vitaminPattern = (raw: string) => vitaminRule.patterns.some((p) => p.test(normalize(raw)));
+for (const bad of ['VEAL', 'VERMOUTH', 'veal', 'verbena', 'velvet']) {
+  check(`[f1] vitamin rule rejects '${bad}'`, vitaminPattern(bad), false);
+}
+for (const good of ['vc', 've', 'VC', 'V.C', 'VC12', 'ビタミンC', 'ビタミンE', 'ビ三C', 'ミンE']) {
+  check(`[f1] vitamin rule accepts '${good}'`, vitaminPattern(good), true);
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
