@@ -4,7 +4,7 @@
   "entries": [
     {
       "id": "pork",
-      "names": ["豚肉", "ぶたにく", "ポーク", "pork", "豚", "ぶた", "豚コラーゲン"],
+      "names": ["豚肉", "ぶたにく", "ポーク", "pork", "豚", "ぶた", "豚コラーゲン", "pork belly"],
       "status": "haram",
       "category": "animal",
       "reasoning": "Daging babi hukumnya haram secara eksplisit dalam Al-Qur'an (QS 2:173, 5:3, 6:145, 16:115), tanpa perbedaan pendapat ulama.",
@@ -85,7 +85,7 @@
     },
     {
       "id": "emulsifier",
-      "names": ["乳化剤", "emulsifier", "乳化剤（大豆由来）"],
+      "names": ["乳化剤", "emulsifier", "emulsifiers", "乳化剤（大豆由来）"],
       "status": "syubhat",
       "category": "additive",
       "reasoning": "Emulsifier bisa berasal dari tumbuhan (halal), sapi syar'i (halal), atau babi (haram). Tanpa keterangan sumber, syubhat.",
@@ -93,7 +93,7 @@
     },
     {
       "id": "monoglyceride",
-      "names": ["モノグリセリド", "グリセリン脂肪酸エステル", "モノおよびジグリセリン脂肪酸エステル", "monoglyceride"],
+      "names": ["モノグリセリド", "グリセリン脂肪酸エステル", "モノおよびジグリセリン脂肪酸エステル", "monoglyceride", "monoglycerides", "mono and diglycerides"],
       "status": "syubhat",
       "category": "additive",
       "reasoning": "Mono-/di-glyceride asam lemak dapat berasal dari lemak hewani (termasuk babi) atau nabati. Sumber menentukan status.",
@@ -151,7 +151,7 @@
     },
     {
       "id": "bonito",
-      "names": ["かつお", "鰹", "カツオ", "bonito", "かつお節"],
+      "names": ["かつお", "鰹", "カツオ", "bonito", "かつお節", "カツオエキス", "鰹エキス", "カツオ節粉末", "かつお削りぶし", "カツ才工キス", "力ツ才節粉末"],
       "status": "halal",
       "category": "animal",
       "reasoning": "Ikan cakalang/katsuo termasuk hasil laut, halal.",
@@ -192,7 +192,7 @@
     },
     {
       "id": "soy-lecithin",
-      "names": ["大豆レシチン", "大豆レシチン（乳化剤）", "soy lecithin", "soya lecithin"],
+      "names": ["大豆レシチン", "大豆レシチン（乳化剤）", "soy lecithin", "soya lecithin", "plant lecithin", "植物レシチン", "レシチン:大豆由来"],
       "status": "halal",
       "category": "additive",
       "reasoning": "Lesitin kedelai berasal dari kedelai (nabati), halal.",
@@ -209,10 +209,10 @@
     },
     {
       "id": "modified-starch",
-      "names": ["加工でん粉", "化工でん粉", "加工澱粉", "modified starch", "加工デンプン", "加工デンプ", "加工テンブン"],
+      "names": ["加工でん粉", "化工でん粉", "加工澱粉", "modified starch", "modified food starch", "modified corn starch", "加工デンプン", "加工デンプ", "加工テンブン", "加工テンプン", "加工でんぷん", "酸化デンプン", "酸化澱粉", "酸化でん粉", "酸化でんぷん", "化工デンプン", "化工澱粉", "加エデンプン", "加エデンブン", "カ工でん粉", "加工プン", "加工アンプン", "加工デンナン"],
       "status": "syubhat",
       "category": "additive",
-      "reasoning": "Pati termodifikasi umumnya nabati, tetapi modifikasi dapat memakai reagen/asam lemak hewani. Sebagian besar pati bersifat halal; verifikasi bila ragu.",
+      "reasoning": "Pati termodifikasi umumnya nabati, tetapi modifikasi (termasuk oksidasi/酸化デンプン) dapat memakai reagen/asam lemak hewani. Sebagian besar pati bersifat halal; verifikasi bila ragu. Varian OCR 加エ/カ工/テ/プン/アン/ンナ dimasukkan karena hanya muncul dari 加工デンプン yang ter-mangle (エでん粉 ditangani rule agar tidak menyeret fuzzy でん粉).",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -277,7 +277,7 @@
     },
     {
       "id": "yeast-extract",
-      "names": ["酵母エキス", "イーストエキス", "yeast extract", "酵母工キス", "酵母工キスパウダー", "酵母エキパウダー"],
+      "names": ["酵母エキス", "イーストエキス", "yeast extract", "酵母工キス", "酵母工キスパウダー", "酵母エキパウダー", "autolyzed yeast extract", "autolysed yeast extract"],
       "status": "halal",
       "category": "additive",
       "reasoning": "Ekstrak ragi umumnya halal (ragi bukan hewan). Waspadai bila diproses dengan media mengandung alkohol.",
@@ -293,7 +293,7 @@
     },
     {
       "id": "l-cysteine",
-      "names": ["L-システイン", "システイン", "L-cysteine"],
+      "names": ["L-システイン", "システイン", "L-cysteine", "cysteine"],
       "status": "syubhat",
       "category": "additive",
       "reasoning": "L-sistein dapat diproduksi dari rambut manusia, bulu bebek, atau bahan sintetis/mikroba; bila dari babi/human = haram. Tanpa keterangan, syubhat.",
@@ -530,7 +530,7 @@
     },
     {
       "id": "exp:アスコルビン酸",
-      "names": ["アスコルビン酸"],
+      "names": ["アスコルビン酸", "ascorbic acid", "l-ascorbic acid", "vitamin c", "V.C"],
       "status": "halal",
       "confidence": "medium",
       "basis": "cross-source",
@@ -1021,39 +1021,6 @@
       "reviewed": true,
       "category": "additive",
       "reasoning": "保湿剤 adalah bahan tambahan yang sumbernya bergantung produsen (nabati/hewani, termasuk babi) — perlu verifikasi, syubhat.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:加工アンプン",
-      "names": ["加工アンプン"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "加工アンプン adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:加工デンナン",
-      "names": ["加工デンナン"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "加工デンナン adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:加工プン",
-      "names": ["加工プン"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "加工プン adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -10045,7 +10012,7 @@
     },
     {
       "id": "fresh-cream",
-      "names": ["生クリーム"],
+      "names": ["生クリーム", "cream", "fresh cream", "heavy cream", "whipping cream"],
       "status": "halal",
       "confidence": "medium",
       "basis": "fiqh-rule",
@@ -10086,6 +10053,347 @@
       "category": "colorant",
       "reasoning": "Pewarna karotenoid (nabati: wortel/tomat/paprika) — halal.",
       "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-water",
+      "names": ["water"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "mineral",
+      "reasoning": "Air (H2O) — mineral, halal.",
+      "sources": ["LPPOM MUI — bahan mineral", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-egg",
+      "names": ["egg", "eggs", "egg yolk", "egg yolk powder"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Telur dan kuning telur bubuk — halal (tidak ada rennet/enzim yang dipersoalkan).",
+      "sources": ["LPPOM MUI — turunan hewani halal", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-egg-white",
+      "names": ["egg white", "egg whites"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Putih telur — halal.",
+      "sources": ["LPPOM MUI — turunan hewani halal", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-milk",
+      "names": ["milk", "whole milk", "skim milk", "milk powder", "buttermilk"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "dairy",
+      "reasoning": "Susu segar/bubuk — halal; waspadai rennet/enzim hanya pada keju (lihat natural-cheese).",
+      "sources": ["LPPOM MUI — turunan susu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-butter",
+      "names": ["butter", "バター", "バタ一"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "dairy",
+      "reasoning": "Mentega dari krim susu — halal. Alias OCR バタ一. Bila tercampur lemak hewani lain (mis. margarin), statusnya berbeda.",
+      "sources": ["LPPOM MUI — turunan susu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-wheat",
+      "names": ["wheat", "wheat flour"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Gandum/tepung gandum — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-soybean",
+      "names": ["soybean", "soybeans", "soya bean", "大豆"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Kedelai — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-soy-flour",
+      "names": ["soy flour", "soya flour"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Tepung kedelai — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-corn-starch",
+      "names": ["corn starch"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Pati jagung — nabati, halal. Berbeda dari modified starch (syubhat, lihat modified-starch).",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-seaweed",
+      "names": ["seaweed", "nori", "海藻"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Rumput laut/nori — nabati, halal.",
+      "sources": ["LPPOM MUI — hasil laut nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-sesame-seed",
+      "names": ["sesame seed", "sesame seeds"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Biji wijen — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-raisin",
+      "names": ["raisin", "raisins", "レーズン", "干しぶどう"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Kismis (anggur kering) — nabati, halal. Waspadai produk rum-raisin yang menambahkan alkohol.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-peanut",
+      "names": ["peanut", "peanuts", "peanut butter"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Kacang tanah — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-cocoa",
+      "names": ["cocoa", "cacao", "cocoa powder", "cocoa butter", "ココア", "カカオ"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Kakao dan mentega kakao — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-vanilla",
+      "names": ["vanilla", "vanillin", "バニラ", "バニリン"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Vanila/vanilin — nabati atau sintetis, halal.",
+      "sources": ["LPPOM MUI — bahan perisa", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-yeast",
+      "names": ["yeast"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Ragi (yeast) — mikroba, halal.",
+      "sources": ["LPPOM MUI — bahan mikroba", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-hfcs",
+      "names": ["high fructose corn syrup", "hfcs", "corn syrup"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "sweetener",
+      "reasoning": "Sirup jagung fruktosa tinggi (HFCS) dan sirup jagung — turunan pati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-maltodextrin",
+      "names": ["maltodextrin", "maltodextrine"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Maltodekstrin dari pati (jagung/kentang) — halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-lactose",
+      "names": ["lactose"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "dairy",
+      "reasoning": "Laktosa (gula susu) — halal.",
+      "sources": ["LPPOM MUI — turunan susu", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-enzyme",
+      "names": ["enzyme", "enzymes", "酵素"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Enzim dapat berasal dari hewani (termasuk babi), tanaman, atau mikroba; tanpa keterangan sumber → syubhat (HANDOVER §6).",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-margarine",
+      "names": ["margarine", "マーガリン"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "fat",
+      "reasoning": "Margarin adalah lemak campuran (nabati/hewani) yang dapat memuat emulsifier/lemak hewani; sumber tidak disebut → syubhat (HANDOVER §6).",
+      "sources": ["LPPOM MUI — lemak", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-bacon",
+      "names": ["bacon"],
+      "status": "haram",
+      "confidence": "high",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Bacon umumnya dari daging babi — haram.",
+      "sources": ["QS Al-Baqarah 2:173", "LPPOM MUI — kriteria bahan haram"]
+    },
+    {
+      "id": "exp:en-ham",
+      "names": ["ham", "ハム"],
+      "status": "haram",
+      "confidence": "high",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "animal",
+      "reasoning": "Ham hampir selalu dari daging babi — haram.",
+      "sources": ["QS Al-Baqarah 2:173", "LPPOM MUI — kriteria bahan haram"]
+    },
+    {
+      "id": "exp:en-defoamer",
+      "names": ["defoamer", "defoaming agent", "antifoam", "消泡剤", "消泡"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "消泡剤/defoamer generik: agen/pembawa bisa hewani (asam lemak) atau mineral; tanpa nama agen → syubhat (HANDOVER §6).",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-coagulant",
+      "names": ["coagulant", "凝固剤", "凝固"],
+      "status": "syubhat",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "additive",
+      "reasoning": "Koagulan generik dapat berupa mineral (nigari/MgCl2 — halal) atau rennet/enzim hewani; tanpa nama agen → syubhat.",
+      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-pizza-sauce",
+      "names": ["pizza sauce", "ピザソース", "ピザソ一ス"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "condiment",
+      "reasoning": "Saus pizza umumnya basis tomat/bumbu nabati — halal; bahan hewani ditandai terpisah. Alias OCR ピザソ一ス.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-chutney",
+      "names": ["chutney", "チャツネ"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "condiment",
+      "reasoning": "Chatni dari buah/sayur, gula, dan cuka. Cuka (酢) menurut kebijakan proyek halal (lihat vinegar); bila label menyebut alkohol/anggur, nilai ulang sebagai syubhat.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-onion",
+      "names": ["onion", "onions", "dried onion", "オニオン", "オニオンエキス", "ソテー・ド・オニオン", "たまねぎ", "玉ねぎ", "玉葱", "タマネギ", "才二才", "才二才エス"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Bawang bombai, ekstrak, dan tumisannya — nabati, halal. Alias OCR 才二才/才二才エス.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-garlic",
+      "names": ["garlic", "garlic oil", "garlic powder", "dried garlic", "ガーリック", "ガーリックオイル", "にんにく", "ニンニク"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Bawang putih, bubuk, dan minyak bawang putih — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-brown-rice",
+      "names": ["brown rice", "roasted brown rice"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "plant",
+      "reasoning": "Beras merah/beras sangrai (roasted brown rice) — nabati, halal.",
+      "sources": ["LPPOM MUI — bahan nabati", "JAKIM MS1500:2019"]
+    },
+    {
+      "id": "exp:en-caramel-color",
+      "names": ["caramel color", "caramel colour", "カラメル色素"],
+      "status": "halal",
+      "confidence": "medium",
+      "basis": "cross-source",
+      "reviewed": true,
+      "category": "colorant",
+      "reasoning": "Pewarna karamel dari gula (E150, MUIS halal) — halal.",
+      "sources": ["MUIS Food Additive Listing (2016)", "LPPOM MUI — bahan nabati"]
     }
   ]
 }

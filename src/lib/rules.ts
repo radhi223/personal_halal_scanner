@@ -179,7 +179,12 @@ export const CURATION_RULES: CurationRule[] = [
     confidence: 'high',
     category: 'animal',
     patterns: [
-      /豚肉/, /ぶたにく/, /ポーク/, /ラード/, /豚脂/, /豚エキス/, /豚肉エキス/, /豚骨/, /豚ガラ/,
+      /豚肉/, /ぶたにく/, /ポーク/,
+      // /ポ一ク/ is the long-vowel OCR misread (ー -> 一, same family as
+      // パ一ム油/マ一ガリン); without it ポ一ク調味料 fell through to the halal
+      // seasoning rule. ポ一ク cannot be anything but pork.
+      /ポ一ク/,
+      /ラード/, /豚脂/, /豚エキス/, /豚肉エキス/, /豚骨/, /豚ガラ/,
       /豚ばら/, /豚バラ/, /豚ロース/, /豚ヒレ/, /豚生姜/,
       // Meat cuts. NB: explicit forms only — a bare /豚/ would also catch 海豚
       // (dolphin) and 河豚 (pufferfish), which are seafood, not pork.
@@ -607,6 +612,31 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('mustard', 'Mustard / マスタード', [/マスタード/], 'plant', 'Moster (nabati), halal.'),
   halalRule('spices', 'Spices / 香辛料', [/香辛料/, /スパイス/, /胡椒/, /こしょう/, /コショウ/], 'plant', 'Rempah-rempah (nabati), halal.'),
   halalRule('acidulant', 'Acidulant / 酸味料', [/酸味料/], 'additive', 'Asam pengatur rasa, umumnya halal.'),
+  // MUST precede the generic /デンプン|でん粉|澱粉/ halal rule below: 加工/化工/
+  // 酸化 forms are MODIFIED starch and are syubhat. A curated EXACT hit wins
+  // first (modified-starch entry), so this rule is the fallback for (a) merged
+  // OCR tokens (加工でん粉キサンタンセルロース, ダーノ加工澱粉) and (b) the
+  // observed OCR variants that miss the curated names (加エ/カ工, テ for デ,
+  // dropped デ: 加工プン/加工アンプン/加工デンナン, エでん粉).
+  {
+    id: 'modified-starch',
+    label: 'Modified starch / 加工デンプン',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'additive',
+    patterns: [
+      /加工デンプ/, /加工テンプ/, /加工でん粉/, /加工でんぷん/, /加工澱粉/,
+      /化工デンプ/, /化工澱粉/, /化工でん粉/,
+      /酸化デンプ/, /酸化澱粉/, /酸化でん粉/, /酸化でんぷん/,
+      // Minimal tokens that can only be a mangled 加工デンプン (previously stored
+      // as halal curated entries by the expander — a false-halal source).
+      /加工プン/, /加工アンプン/, /加工デンナン/,
+      /加エデンプン/, /加エデンブン/, /カ工でん粉/, /エでん粉/,
+    ],
+    reasoning:
+      'Pati termodifikasi (加工/化工/酸化デンプン): modifikasi dapat memakai reagen/asam lemak hewani. Syubhat.',
+    sources: ['LPPOM MUI — bahan tambahan', JAKIM],
+  },
   halalRule('thickener', 'Thickener / 増粘多糖類', [/増粘多糖類/, /増粘剤/, /糊料/], 'additive', 'Penstabil/pengental polisakarida, umumnya nabati/mikroba, halal.'),
   halalRule('veg-oil', 'Vegetable oil / 植物油脂', [/植物油脂/, /植物油/, /サラダ油/], 'fat', 'Minyak nabati, halal.'),
   halalRule('starch', 'Starch / でん粉', [/でん粉/, /でんぷん/, /澱粉/, /デンプン/], 'plant', 'Pati nabati, halal.'),
@@ -684,11 +714,28 @@ export const CURATION_RULES: CurationRule[] = [
     // /マ一ガリン/ is the observed OCR misread of the long vowel (ー -> 一,
     // fldb_4902410315353); without it the token fell through to the catalog as
     // unknown(margarine) instead of inheriting the syubhat verdict.
-    patterns: [/マーガリン/, /マ一ガリン/],
+    // /マ一ガリ/ (truncated tail ン) is added for the expanded dev golden set
+    // (off2_0248400601186): マ一ガリ is two edits from マーガリン, past the
+    // length-aware fuzzy gate, so the rule layer must catch it.
+    patterns: [/マーガリン/, /マ一ガリン/, /マ一ガリ/],
     reasoning: 'Margarin bisa berbasis lemak hewani (termasuk babi) atau nabati. Perlu verifikasi.',
     sources: [LPPOM, JAKIM],
   },
   halalRule('butter', 'Butter / バター', [/バター/], 'dairy', 'Mentega dari susu, halal.', 'medium'),
+  // クリームチーズ is a CHEESE (same animal-rennet doubt as the curated チーズ
+  // entry). It MUST precede the generic /クリーム/ halal rule below, otherwise
+  // クリームチーズ/クリームチーズオースト was granted halal (off2_4903308030358).
+  {
+    id: 'cream-cheese',
+    label: 'Cream cheese / クリームチーズ',
+    status: 'syubhat',
+    confidence: 'medium',
+    category: 'dairy',
+    patterns: [/クリームチーズ/],
+    reasoning:
+      'Keju krim dapat memakai rennet hewani (lihat keju/rennet) — perlu sertifikasi halal, syubhat.',
+    sources: [LPPOM, JAKIM],
+  },
   halalRule('cream', 'Cream / クリーム', [/生クリーム/, /クリーム/], 'dairy', 'Krim susu, halal.', 'medium'),
   halalRule('milk-powder', 'Milk powder / 粉乳', [/脱脂粉乳/, /全粉乳/, /全脂乳粉/, /粉乳/], 'dairy', 'Susu bubuk, halal.', 'medium'),
   halalRule('whey', 'Whey / ホエイ', [/ホエイ/, /乳清/], 'dairy', 'Whey dari susu; umumnya halal, waspadai rennet.', 'low'),
@@ -1236,7 +1283,10 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'low',
     category: 'dairy',
-    patterns: [/クリーミングパウダー/],
+    // /クー三グパウダ/ is the observed PaddleOCR misread of クリーミングパウダー
+    // (ミ -> 三, off2_4901360354856); without it the token fell to the catalog as
+    // unknown despite the explicit syubhat rule.
+    patterns: [/クリーミングパウダー/, /クー三グパウダ/],
     reasoning: 'Krimer bubuk bisa mengandung lemak hewani/emulsifier. Perlu verifikasi.',
     sources: [LPPOM, JAKIM],
   },

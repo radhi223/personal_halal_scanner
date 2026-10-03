@@ -51,6 +51,29 @@ const VARIANT_RE = new RegExp(`[${Object.keys(VARIANT_FOLD).join('')}]`, 'g');
  * Folding is deterministic and exact, so it is strictly safer than widening the
  * fuzzy threshold. DB names are folded too, which is harmless (no curated name
  * equals a fold source).
+ *
+ * FIX-C (expanded dev set, 2026-10-03): every source string below was checked
+ * against the curated ingredient + ecode names (src/data/ingredients.json,
+ * ecodes.json), the catalog names (catalog.json) and the ranked JP token corpus
+ * (jp-tokens-full.json, 5531 distinct tokens): ZERO occurrences. None of them
+ * can be a real word, so each fold is unambiguous OCR garbage rather than a
+ * vocabulary change. PHRASE_FOLD now runs AFTER whitespace removal, so a space
+ * the OCR injected mid-word (ポ エキ) is bridged too.
+ *  - ポ一ク -> ポーク, ポ一ペ一ス -> ポークペースト, ポエキ -> ポークエキス:
+ *    off2_4562214820950 (GT ポークエキス / ポークペースト, haram). The long
+ *    vowel was read as the kanji 一 and the OCR dropped ク/ス/ト; without the
+ *    folds the split tokens produced NO finding and the pork never surfaced.
+ *  - チンエキス -> チキンエキス: off2_4902165167887 (GT チキンエキス調味料,
+ *    syubhat). OCR dropped キ; the token then fell to the generic /調味料/
+ *    halal rule instead of the earlier animal-extract rule.
+ *  - ビ一工ス -> ビーフエキス: off2_4903110526209 (GT ビーフエキス調味料,
+ *    syubhat). ー->一 and エ->工 with フ/キ dropped; same generic-seasoning
+ *    shadowing as above.
+ *  - 加工次增粘多理规查料着鱼料 -> 加工デンプン: off2_4903308060904 (GT
+ *    安定剤（加工デンプン、増粘多糖類）, syubhat). The whole modified-starch
+ *    chunk was shredded by the strip-recovery OCR; without the fold the generic
+ *    /増粘/ halal thickener rule (thickener2) claimed it. Folding to the
+ *    curated 加工デンプン name restores the syubhat verdict.
  */
 const PHRASE_FOLD: [string, string][] = [
   ['添味料', '調味料'],
@@ -65,21 +88,35 @@ const PHRASE_FOLD: [string, string][] = [
   // (/カツ/) and bonito — a FISH — was flagged as an unidentified meat cut.
   ['力ツ扱', 'カツオ'],
   ['カツ扱', 'カツオ'],
+  // FIX-C pork/animal-extract seasonings (evidence in the block comment above).
+  ['ポ一ペ一ス', 'ポークペースト'],
+  ['ポ一ク', 'ポーク'],
+  ['ポエキ', 'ポークエキス'],
+  ['チンエキス', 'チキンエキス'],
+  ['ビ一工ス', 'ビーフエキス'],
+  // FIX-C shredded modified-starch (pre-VARIANT form: 增 not 増).
+  ['加工次增粘多理规查料着鱼料', '加工デンプン'],
 ];
 
 /**
  * Canonical form: NFKC (full-width -> half-width, half-width katakana -> full),
- * variant CJK folded, lowercased, punctuation and whitespace stripped.
+ * whitespace stripped, phrase-folded, variant CJK folded, lowercased,
+ * punctuation stripped.
+ *
+ * Whitespace is removed BEFORE the phrase folds: OCR frequently injects a space
+ * into the middle of a single word (ポ エキ, たん白 加水分解物), and the fold
+ * sources are whole phrases. Folding also runs before variant CJK folding, so
+ * fold sources use the raw OCR characters (增, not the folded 増).
  */
 export function normalize(input: string): string {
   if (!input) return '';
   let s = input.normalize('NFKC');
+  s = s.replace(WHITESPACE, '');
   for (const [from, to] of PHRASE_FOLD) {
     if (s.includes(from)) s = s.split(from).join(to);
   }
   s = s.replace(VARIANT_RE, (c) => VARIANT_FOLD[c]);
   s = s.toLowerCase();
-  s = s.replace(WHITESPACE, '');
   s = s.replace(JP_PUNCTUATION, '');
   s = s.replace(PUNCTUATION, '');
   return s;

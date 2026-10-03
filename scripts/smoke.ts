@@ -348,7 +348,7 @@ check('スターアニス -> star-anise', s10m.get(normalize('スターアニス
 check('チリパウダ -> chili-powder', s10m.get(normalize('チリパウダ'))?.entry.id, 'rule:chili-powder');
 check('なたね油 -> rapeseed-oil', s10m.get(normalize('なたね油'))?.entry.id, 'rule:rapeseed-oil');
 check('カレー粉 -> curry-powder', s10m.get(normalize('カレー粉'))?.entry.id, 'rule:curry-powder');
-check('チャツネ -> chutney', s10m.get(normalize('チャツネ'))?.entry.id, 'rule:chutney');
+check('チャツネ -> chutney', s10m.get(normalize('チャツネ'))?.entry.id, 'exp:en-chutney');
 check('二酸化ケイ素 -> silica', s10m.get(normalize('二酸化ケイ素'))?.entry.id, 'rule:silica');
 
 // 20. Frequency-ranked labeling: safety rules + coverage batch.
@@ -737,7 +737,9 @@ check('[fix32] animal-plant-fat rule id', verdict30('動植物油脂').id, 'rule
 check('[fix32] hydrolyzed-protein rule id', verdict30('蛋白加水分解物').id, 'rule:hydrolyzed-protein');
 check('[fix32] hydrolyzed-yeast rule id', verdict30('加水分解酵母').id, 'rule:hydrolyzed-yeast');
 check('[fix32] dehydroacetic rule id', verdict30('デヒドロ酢酸').id, 'rule:dehydroacetic-acid');
-check('[fix32] ham rule id', verdict30('ハム').id, 'rule:ham');
+check('[fix32] ham rule id', verdict30('ハム').id, 'exp:en-ham');
+// The curated ハム exact entry now wins; the rule must still cover compound forms.
+check('[fix32] ham rule still covers ロースハム', verdict30('ロースハム').id, 'rule:ham');
 check('[fix32] bare たんぱく質 is noise', isLabelNoise(normalize('たんぱく質')), true);
 
 for (const claim of ['乳化剤不使用', '無添加乳化剤']) {
@@ -1484,7 +1486,8 @@ check(
   'rule:tofu-coagulant'
 );
 check('[goldenset] 凝固剤 -> syubhat (could be rennet/enzyme)', verdict30('凝固剤').status, 'syubhat');
-check('[goldenset] 凝固剤 rule id', verdict30('凝固剤').id, 'rule:coagulant');
+check('[goldenset] 凝固剤 rule id', verdict30('凝固剤').id, 'exp:en-coagulant');
+check('[goldenset] coagulant rule still fires', matchRule(normalize('凝固剤'))?.id, 'coagulant');
 
 const NAMED_COLORANTS: [string, string][] = [
   ['カラメル色素', 'halal'],
@@ -1502,7 +1505,8 @@ const NAMED_COLORANTS: [string, string][] = [
 for (const [raw, status] of NAMED_COLORANTS) {
   check(`[goldenset] ${raw} -> ${status}`, verdict30(raw).status, status);
 }
-check('[goldenset] named colourant rule id', verdict30('カラメル色素').id, 'rule:named-colorant');
+check('[goldenset] named colourant rule id', verdict30('カラメル色素').id, 'exp:en-caramel-color');
+check('[goldenset] named-colourant rule still fires', verdict30('パプリカ色素').id, 'rule:named-colorant');
 check('[goldenset] 着色料 still syubhat', verdict30('着色料').status, 'syubhat');
 check('[goldenset] 色素 still syubhat', verdict30('色素').status, 'syubhat');
 check('[goldenset] 香料 still syubhat', verdict30('香料').status, 'syubhat');
@@ -2116,14 +2120,16 @@ for (const list of [
 
 // 50a. カ/オ garble folds to カツオ (bonito, FISH) and must never be a meat cut.
 check('[f1] fold 力ツ扱 -> カツオ', normalize('力ツ扱'), 'カツオ');
-check('[f1] カツ扱エキス -> katsuobushi halal', device('カツ扱エキス'), 'halal:rule:katsuobushi');
-check('[f1] 力ツ扱節粉末 -> katsuobushi halal', device('力ツ扱節粉末'), 'halal:rule:katsuobushi');
+check('[f1] カツ扱エキス -> katsuobushi halal', device('カツ扱エキス'), 'halal:bonito');
+check('[f1] 力ツ扱節粉末 -> katsuobushi halal', device('力ツ扱節粉末'), 'halal:bonito');
 check(
   '[f1] garble fold never yields meat-cut',
   analyzeLayered(getCuratedIndex(), getCatalogIndex(), 'カツ扱エキス')[0]?.match?.entry.id === 'rule:meat-cut',
   false
 );
-check('[f1] カツオエキス stays halal fish', device('カツオエキス'), 'halal:rule:katsuobushi');
+check('[f1] カツオエキス stays halal fish', device('カツオエキス'), 'halal:bonito');
+// Curated bonito alias now wins; the katsuobushi rule must still cover compounds.
+check('[f1] katsuobushi rule still fires', matchRule(normalize('カツオエキス'))?.id, 'katsuobushi');
 
 // 50b. Plant vs animal hydrolyzed protein ordering.
 check('[f1] 植物性蛋白加水分解物 -> plant rule', device('植物性蛋白加水分解物'), 'halal:rule:plant-hydrolyzed-protein');
@@ -2144,7 +2150,7 @@ check('[f1] 着色料（野菜） is halal', vegColorF1.some((f) => f.match?.ent
 check('[f1] マ一ガリン -> margarine', device('マ一ガリン'), 'syubhat:rule:margarine');
 
 // 50e. Pizza sauce precedes the generic sauce rule.
-check('[f1] ピザソース -> pizza-sauce', device('ピザソース'), 'halal:rule:pizza-sauce');
+check('[f1] ピザソース -> pizza-sauce', device('ピザソース'), 'halal:exp:en-pizza-sauce');
 check('[f1] ピザ一ス -> pizza-sauce', device('ピザ一ス'), 'halal:rule:pizza-sauce');
 check('[f1] bare ソース stays syubhat', device('ソース'), 'syubhat:rule:sauce');
 
@@ -2217,10 +2223,10 @@ check('[f1] real 食塩 still resolves', device('食塩'), 'halal:salt');
 // which matched ANY token containing them: VEAL (young beef) -> halal:vitamin
 // and VERMOUTH (alcohol) -> halal. Both are false-halal on meat/alcohol. The
 // Latin forms are now anchored to the WHOLE normalized token: /^v[ce](\d{1,2})?$/.
-check('[f1] vc -> vitamin', device('vc'), 'halal:rule:vitamin');
+check('[f1] vc -> vitamin', device('vc'), 'halal:exp:アスコルビン酸');
 check('[f1] ve -> vitamin', device('ve'), 'halal:rule:vitamin');
-check('[f1] VC -> vitamin', device('VC'), 'halal:rule:vitamin');
-check('[f1] V.C -> vitamin (normalize strips dot)', device('V.C'), 'halal:rule:vitamin');
+check('[f1] VC -> vitamin', device('VC'), 'halal:exp:アスコルビン酸');
+check('[f1] V.C -> vitamin (normalize strips dot)', device('V.C'), 'halal:exp:アスコルビン酸');
 check('[f1] VC12 -> vitamin', device('VC12'), 'halal:rule:vitamin');
 check('[f1] VEAL is NOT halal (meat)', device('VEAL')?.startsWith('halal'), false);
 check('[f1] VERMOUTH is NOT halal (alcohol)', device('VERMOUTH')?.startsWith('halal'), false);
@@ -2233,6 +2239,250 @@ for (const bad of ['VEAL', 'VERMOUTH', 'veal', 'verbena', 'velvet']) {
 for (const good of ['vc', 've', 'VC', 'V.C', 'VC12', 'ビタミンC', 'ビタミンE', 'ビ三C', 'ミンE']) {
   check(`[f1] vitamin rule accepts '${good}'`, vitaminPattern(good), true);
 }
+
+// 51. P4 curated English ingredient aliases + JP label terms (2026-10-03). These
+// are the high-frequency English tokens that previously fell to the unreviewed
+// catalog (unknown) on real OFF labels, plus the JP terms/OCR variants the dev
+// golden set missed. Statuses follow HANDOVER §6 (plants/minerals/dairy -> halal;
+// source-dependent additives -> syubhat; explicit pork -> haram).
+// English aliases.
+check('[p4] EGG -> halal', device('EGG'), 'halal:exp:en-egg');
+check('[p4] EGG WHITES -> halal', device('EGG WHITES'), 'halal:exp:en-egg-white');
+check('[p4] EGG YOLK POWDER -> halal', device('EGG YOLK POWDER'), 'halal:exp:en-egg');
+check('[p4] MILK -> halal', device('MILK'), 'halal:exp:en-milk');
+check('[p4] BUTTER -> halal', device('BUTTER'), 'halal:exp:en-butter');
+check('[p4] バタ一 (OCR) -> halal', device('バタ一'), 'halal:exp:en-butter');
+check('[p4] CREAM -> halal', device('CREAM'), 'halal:fresh-cream');
+check('[p4] WHEAT -> halal', device('WHEAT'), 'halal:exp:en-wheat');
+check('[p4] SOYBEAN -> halal', device('SOYBEAN'), 'halal:exp:en-soybean');
+check('[p4] SOY FLOUR -> halal', device('SOY FLOUR'), 'halal:exp:en-soy-flour');
+check('[p4] CORN STARCH -> halal', device('CORN STARCH'), 'halal:exp:en-corn-starch');
+check('[p4] ROASTED BROWN RICE -> halal', device('ROASTED BROWN RICE'), 'halal:exp:en-brown-rice');
+check('[p4] SEAWEED -> halal', device('SEAWEED'), 'halal:exp:en-seaweed');
+check('[p4] SESAME SEED -> halal', device('SESAME SEED'), 'halal:exp:en-sesame-seed');
+check('[p4] RAISINS -> halal', device('RAISINS'), 'halal:exp:en-raisin');
+check('[p4] PEANUTS -> halal', device('PEANUTS'), 'halal:exp:en-peanut');
+check('[p4] COCOA -> halal', device('COCOA'), 'halal:exp:en-cocoa');
+check('[p4] VANILLA -> halal', device('VANILLA'), 'halal:exp:en-vanilla');
+check('[p4] YEAST -> halal', device('YEAST'), 'halal:exp:en-yeast');
+check('[p4] WATER -> halal', device('WATER'), 'halal:exp:en-water');
+check('[p4] LACTOSE -> halal', device('LACTOSE'), 'halal:exp:en-lactose');
+check('[p4] MALTODEXTRIN -> halal', device('MALTODEXTRIN'), 'halal:exp:en-maltodextrin');
+check('[p4] HIGH FRUCTOSE CORN SYRUP -> halal', device('HIGH FRUCTOSE CORN SYRUP'), 'halal:exp:en-hfcs');
+check('[p4] ASCORBIC ACID -> halal', device('ASCORBIC ACID'), 'halal:exp:アスコルビン酸');
+check('[p4] SOY LECITHIN -> halal', device('SOY LECITHIN'), 'halal:soy-lecithin');
+// Bare LECITHIN must stay syubhat (guards the soy-lecithin split).
+check('[p4] bare LECITHIN stays syubhat', device('LECITHIN'), 'syubhat:lecithin');
+// Source-dependent EN additives stay syubhat.
+check('[p4] ENZYMES -> syubhat', device('ENZYMES'), 'syubhat:exp:en-enzyme');
+check('[p4] MONO AND DIGLYCERIDES -> syubhat', device('MONO AND DIGLYCERIDES'), 'syubhat:monoglyceride');
+check('[p4] EMULSIFIERS -> syubhat', device('EMULSIFIERS'), 'syubhat:emulsifier');
+check('[p4] SHORTENING -> syubhat', device('SHORTENING'), 'syubhat:shortening');
+check('[p4] MARGARINE -> syubhat', device('MARGARINE'), 'syubhat:exp:en-margarine');
+check('[p4] L-CYSTEINE -> syubhat', device('L-CYSTEINE'), 'syubhat:l-cysteine');
+check('[p4] MODIFIED FOOD STARCH -> syubhat', device('MODIFIED FOOD STARCH'), 'syubhat:modified-starch');
+// Explicit pork stays haram.
+check('[p4] BACON -> haram', device('BACON'), 'haram:exp:en-bacon');
+check('[p4] HAM -> haram', device('HAM'), 'haram:exp:en-ham');
+check('[p4] PORK BELLY -> haram', device('PORK BELLY'), 'haram:pork');
+// Citric acid: E330 is ecode-syubhat; adding a curated halal name would create a
+// duplicate-name conflict (strictest-wins would keep syubhat anyway). Pinned so
+// nobody "fixes" it into a conflict.
+check('[p4] CITRIC ACID stays ecode syubhat (no duplicate)', device('CITRIC ACID'), 'syubhat:ecode:E330');
+// Adding バター must not soften バター入りマーガリン (rule order guard).
+check('[p4] バター入りマーガリン stays syubhat', device('バター入りマーガリン'), 'syubhat:rule:margarine');
+// JP terms / OCR variants.
+check('[p4] オニオンエキス -> halal', matchTerm(getCuratedIndex(), 'オニオンエキス')?.entry.id, 'exp:en-onion');
+check('[p4] ソテー・ド・オニオン -> halal', matchTerm(getCuratedIndex(), 'ソテー・ド・オニオン')?.entry.id, 'exp:en-onion');
+check('[p4] 才二才 (OCR) -> onion halal', device('才二才'), 'halal:exp:en-onion');
+check('[p4] ガーリックオイル -> halal', device('ガーリックオイル'), 'halal:exp:en-garlic');
+check('[p4] チャツネ -> halal', device('チャツネ'), 'halal:exp:en-chutney');
+check('[p4] chutney rule still fires', matchRule(normalize('チャツネ'))?.id, 'chutney');
+check('[p4] ピザソ一ス (OCR) -> halal', device('ピザソ一ス'), 'halal:exp:en-pizza-sauce');
+check('[p4] カラメル色素 -> halal', device('カラメル色素'), 'halal:exp:en-caramel-color');
+// Bonito OCR variants must stay FISH-halal, never rule:meat-cut.
+check('[p4] カツ才工キス -> bonito halal', device('カツ才工キス'), 'halal:bonito');
+check('[p4] 力ツ才節粉末 -> bonito halal', device('力ツ才節粉末'), 'halal:bonito');
+check('[p4] カツオ節粉末 -> bonito halal', device('カツオ節粉末'), 'halal:bonito');
+// Unnamed defoamer/coagulant are source-dependent syubhat (defoamer guard: the
+// rule layer has 消泡 halal, the curated exact must win).
+check('[p4] 消泡剤 -> syubhat (defoamer)', device('消泡剤'), 'syubhat:exp:en-defoamer');
+check('[p4] 消泡 (OCR) -> syubhat', device('消泡'), 'syubhat:exp:en-defoamer');
+check('[p4] 凝固 -> syubhat (coagulant)', device('凝固'), 'syubhat:exp:en-coagulant');
+// 52. FIX-A: expanded dev golden set (off2 transcripts, 2026-10-03). Modified
+// starch and its OCR variants must be syubhat (a generic /でん粉|澱粉/ halal rule
+// used to shadow the curated fuzzy hit), plus the ポ一ク long-vowel garble,
+// truncated margarine, cream cheese vs the generic /クリーム/ halal rule, and the
+// creaming-powder OCR variant. The garbage halal entries exp:加工プン /
+// exp:加工アンプン / exp:加工デンナン were removed.
+const FIXA: [string, string][] = [
+  ['加工でん粉', 'syubhat'],
+  ['加工デンプン', 'syubhat'],
+  ['加工でんぷん', 'syubhat'],
+  ['加工澱粉', 'syubhat'],
+  ['化工デンプン', 'syubhat'],
+  ['化工澱粉', 'syubhat'],
+  ['酸化デンプン', 'syubhat'],
+  ['酸化澱粉', 'syubhat'],
+  ['酸化でん粉', 'syubhat'],
+  ['加工テンプン', 'syubhat'],
+  ['加エデンプン', 'syubhat'],
+  ['カ工でん粉', 'syubhat'],
+  ['エでん粉', 'syubhat'],
+  ['加工プン', 'syubhat'],
+  ['加工アンプン', 'syubhat'],
+  ['加工デンナン', 'syubhat'],
+  ['加工でん粉キサンタンセルロース', 'syubhat'],
+  ['ダーノ加工澱粉', 'syubhat'],
+  ['マ一ガリ', 'syubhat'],
+  ['ポ一ク調味料', 'haram'],
+  ['クリームチーズ', 'syubhat'],
+  ['クリームチーズオースト', 'syubhat'],
+  ['クー三グパウダー', 'syubhat'],
+];
+for (const [raw, status] of FIXA) {
+  check(`[fixa] ${raw} -> ${status}`, verdict30(raw).status, status);
+}
+check('[fixa] 酸化デンプン curated id', verdict30('酸化デンプン').id, 'modified-starch');
+check(
+  '[fixa] merged 加工でん粉 token rule id',
+  verdict30('加工でん粉キサンタンセルロース').id,
+  'rule:modified-starch'
+);
+check('[fixa] ポ一ク調味料 rule id', verdict30('ポ一ク調味料').id, 'rule:pork');
+check('[fixa] クリームチーズ rule id', verdict30('クリームチーズ').id, 'rule:cream-cheese');
+check('[fixa] マ一ガリ rule id', verdict30('マ一ガリ').id, 'rule:margarine');
+// Plain starch must stay halal: the new curated aliases must not leak into the
+// unmodified forms through fuzzy matching or rule order.
+for (const raw of ['でん粉', 'デンプン', '澱粉', 'でんぷん', '馬鈴薯でん粉', 'コーンスターチ']) {
+  check(`[fixa] non-reg ${raw} -> halal`, verdict30(raw).status, 'halal');
+}
+check('[fixa] plain でん粉 stays rule:starch', verdict30('でん粉').id, 'rule:starch');
+check(
+  '[fixa] でん粉 no fuzzy curated match (エでん粉 rule-only)',
+  matchTerm(getCuratedIndex(), 'でん粉'),
+  null
+);
+// The removed expander garbage must never return as halal curated entries.
+for (const raw of ['加工プン', '加工アンプン', '加工デンナン']) {
+  check(
+    `[fixa] ${raw} not a curated halal fragment`,
+    verdict30(raw).status !== 'halal',
+    true
+  );
+}
+
+// Data hygiene: no duplicate normalized names inside the curated file and no NEW
+// status conflict across ingredients.json + ecodes.json.
+{
+  const byName = new Map<string, string[]>();
+  for (const e of loadCurated().entries) {
+    if (e.id.startsWith('ecode:')) continue;
+    for (const n of e.names) {
+      const k = normalize(n);
+      if (!k) continue;
+      const list = byName.get(k) ?? [];
+      list.push(`${e.id}|${e.status}`);
+      byName.set(k, list);
+    }
+  }
+  const dupNames = [...byName.entries()].filter(([, v]) => v.length > 1);
+  check(
+    '[p4] no duplicate normalized names in ingredients.json',
+    dupNames,
+    []
+  );
+}
+
+// 53. FIX-C: expanded dev golden set, 2026-10-03 (5 remaining false-halal).
+// Meat-extract seasoning tokens whose OCR garble lost the species stem were
+// swallowed by the generic /調味料/ halal rule, and the strip-recovery OCR
+// shredded the pork / modified-starch tokens so badly that no finding was
+// emitted. The PHRASE_FOLD entries added to normalize.ts restore them. Every
+// fold source was searched in the curated ingredient + ecode names, the catalog
+// names and the ranked JP token corpus (jp-tokens-full.json): ZERO occurrences
+// — they are unambiguous OCR garbage, not real words.
+// 53a. The folds themselves (deterministic, exact, whitespace-bridging).
+check('[fixc] fold ポ エキ -> ポークエキス', normalize('ポ エキ'), 'ポークエキス');
+check('[fixc] fold ポ一ク -> ポーク', normalize('ポ一ク'), 'ポーク');
+check('[fixc] fold ポ一ペ一ス -> ポークペースト', normalize('ポ一ペ一ス'), 'ポークペースト');
+check('[fixc] fold チンエキス調味料 -> チキンエキス調味料', normalize('チンエキス調味料'), 'チキンエキス調味料');
+check('[fixc] fold ビ一工ス調味料 -> ビーフエキス調味料', normalize('ビ一工ス調味料'), 'ビーフエキス調味料');
+check(
+  '[fixc] fold shredded starch -> 加工デンプン',
+  normalize('加工 次增粘多理规查料着鱼料'),
+  '加工デンプン'
+);
+// Real words are never touched by the new folds.
+check('[fixc] idempotent ポークエキス', normalize('ポークエキス'), 'ポークエキス');
+check('[fixc] idempotent チキンエキス', normalize('チキンエキス'), 'チキンエキス');
+check('[fixc] idempotent ビーフエキス', normalize('ビーフエキス'), 'ビーフエキス');
+check('[fixc] idempotent でん粉', normalize('でん粉'), 'でん粉');
+
+// 53b. The five observed case tokens now resolve.
+check('[fixc] ポ エキ -> haram (curated pork-extract)', device('ポ エキ'), 'haram:pork-extract');
+check('[fixc] ポ一ペ一ス -> haram (pork rule)', device('ポ一ペ一ス'), 'haram:rule:pork');
+check(
+  '[fixc] チンエキス調味料 -> syubhat (animal-extract, not seasoning)',
+  device('チンエキス調味料'),
+  'syubhat:rule:animal-extract'
+);
+check(
+  '[fixc] ビ一工ス調味料 -> syubhat (animal-extract, not seasoning)',
+  device('ビ一工ス調味料'),
+  'syubhat:rule:animal-extract'
+);
+check(
+  '[fixc] shredded 加工デンプン chunk -> syubhat modified-starch',
+  device('加工 次增粘多理规查料着鱼料'),
+  'syubhat:modified-starch'
+);
+// The compound soup from case 1 (off2_4562214820950) must surface the pork.
+const fixcSoup = analyzeLayered(
+  getCuratedIndex(),
+  getCatalogIndex(),
+  'スープ（香味油、ポークエキス、しょうゆ、たん白加水分解物、砂糖、ポークペースト、食塩、発酵調味料、シーズニングペースト、香辛料）'
+);
+check(
+  '[fixc] compound soup surfaces a haram finding',
+  fixcSoup.some((f) => f.match?.entry.status === 'haram'),
+  true
+);
+
+// 53c. Explicit animal-extract seasonings: the species status must beat the
+// generic /調味料/ halal rule (rule array order already: animal-extract /
+// pork / chicken / beef all precede seasoning — pinned here).
+for (const [raw, want] of [
+  ['チキンエキス調味料', 'syubhat:rule:animal-extract'],
+  ['ビーフエキス調味料', 'syubhat:rule:animal-extract'],
+  ['ポーク調味料', 'haram:rule:pork'],
+  ['ポークエキス調味料', 'haram:rule:pork'],
+  ['鶏エキス調味料', 'syubhat:rule:chicken'],
+  ['牛エキス調味料', 'syubhat:rule:beef'],
+] as [string, string][]) {
+  check(`[fixc] ${raw} -> ${want}`, device(raw), want);
+}
+
+// 53d. Non-regressions: plain starch stays halal; bare meats unchanged; the
+// generic seasoning stays halal; the beef-oil catalog token must NOT become
+// ビーフエキス through the new fold.
+for (const raw of ['でん粉', 'デンプン', '澱粉', 'でんぷん', 'コーンスターチ']) {
+  check(`[fixc] non-reg ${raw} -> halal`, verdict30(raw).status, 'halal');
+}
+check('[fixc] non-reg でん粉 rule id', verdict30('でん粉').id, 'rule:starch');
+check('[fixc] non-reg 調味料 -> halal generic', verdict30('調味料').id, 'rule:seasoning');
+check('[fixc] non-reg 風味調味料 -> syubhat', verdict30('風味調味料').id, 'rule:fermented-seasoning');
+check('[fixc] non-reg チキン -> syubhat', verdict30('チキン').status, 'syubhat');
+check('[fixc] non-reg ビーフ -> syubhat', verdict30('ビーフ').status, 'syubhat');
+check('[fixc] non-reg ポーク -> haram', verdict30('ポーク').status, 'haram');
+check('[fixc] non-reg ポークエキス curated haram', verdict30('ポークエキス').id, 'pork-extract');
+check('[fixc] non-reg 加工デンプン -> syubhat', verdict30('加工デンプン').status, 'syubhat');
+check('[fixc] non-reg 増粘多糖類 -> halal', verdict30('増粘多糖類').status, 'halal');
+check(
+  '[fixc] non-reg 香味ビ一フ才イル is not animal-extract',
+  verdict30('香味ビ一フ才イル').id === 'rule:animal-extract',
+  false
+);
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);
