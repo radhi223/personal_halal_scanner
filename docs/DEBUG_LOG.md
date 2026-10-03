@@ -231,8 +231,9 @@ strip), not a regression — see `docs/VALIDATION_GOLDENSET.md` "Expanded corpus
 
 Known limits carried forward:
 
-1. Gate false-halal = 1, OCR-limited: `off2_4902715927824` 加工でん粉 lost its
-   `加工` prefix at the section boundary, so `でん粉` hits plain-starch halal.
+1. Gate false-halal = 1 (pre-session-8b), OCR-limited: `off2_4902715927824`
+   加工でん粉 lost its `加工` prefix at the section boundary, so `でん粉` hit
+   plain-starch halal. **Fixed as a class in session 8b -> 0** (see below).
 2. Offline harness fidelity: ML Kit, adaptive 3rd pass, camera and MB crop are
    not measurable offline; AC-14..AC-22 remain device-run items.
 3. Expanded corpus is far below accuracy thresholds (classification 55.3%,
@@ -242,3 +243,70 @@ Known limits carried forward:
 5. Residual data issues: sodiumcaseinate status conflict (syubhat/halal), 2
    curated name collisions, and the V1-audit fuzzy-halal-from-haram-mutation
    case (probe only).
+
+## Session 8b (2026-10-04) — FH-class fix + AC-5 rollout
+
+### The false-halal was a CLASS, not one image
+
+Last remaining gate false-halal (`off2_4902715927824`: 加工でん粉 -> halal via
+`rule:starch`) was a "modifier-prefix + base ingredient" boundary chop: a
+mid-line 賞味期限 stop cut the OCR column line carrying the modifier, leaving
+bare でん粉 at the section start.
+
+Mechanism (`src/lib/normalize.ts`):
+- `:233` `MODIFIER_PREFIXES` (30 curated modifier tokens: 加工/酸化/酵素分解/…)
+- `:247` `rawTextHasCompound` — raw OCR must carry modifier+base contiguously;
+  same-line whitespace is tolerated, a newline is not
+- `:269` `repairBoundaryChoppedModifier` — re-prefixes ONLY the section's first
+  token; no double-prefix; no graft on unrelated first tokens
+- wired at `:313` (no-marker path) and `:347` (normal path) of
+  `extractIngredientSection`
+
+Evidence: class audit over 963 modifier x base pairs found **18 dangerous pairs**
+(compound stricter than base) and **0 where the compound is laxer**, so a
+repair can only ever surface the stricter verdict. Over-caution scan: exactly
+one graft event in the whole corpus, zero cases where a bare base expected
+halal got grafted. Blind-graft caveat: a false graft is theoretically possible
+(name printed bare + compound elsewhere in the blob) but has **zero dev
+occurrences**; it can never laxify a verdict.
+
+Smoke section 54 pins the real off2 raw text + synthetic boundary variants
+(whitespace-split, 酸化, no-compound, unrelated-first-token, no-marker path) +
+verdict non-regressions.
+
+### GT categories + AC-5 enablement
+
+GT records now carry the protocol §2.1 `category` code. `scripts/validate-real.ts`
+gains an ADDITIVE AC-5 per-category block (`gtCategory` + `ac5`/`perCategory`
+report keys; nothing renamed or removed). Dev 93/93 and holdout 17/17 records
+map to codes. Convention: AC-5 counts ALL GT occurrences of a category;
+uncovered (harness) or uncorrelated (device) images score their occurrences as
+unmatched.
+
+| Category | Classification recall | Unmatched |
+|---|---|---|
+| SN | 57.9% | 34.3% |
+| FZ | 46.9% | 46.9% |
+| SE | ~49% | ~47% |
+| DR | 56.0% | 37.3% |
+| ND | 52.2% | 45.3% |
+| DY | 73.4% | 18.8% |
+| BR | 60.6% | 35.6% |
+| PM | 50.5% | 45.9% |
+
+AC-5 MUST (>= 85% each) fails every category. Unmatched is systemic
+(18.8-47.3% in every category); by count SN/PM/ND lead because they hold the
+most occurrences — the bottleneck is extraction, not vocabulary or
+category-specific matching.
+
+### Final metrics (session 8b)
+
+| Set | Result |
+|---|---|
+| Gate (92/93 covered, 1868 occ.) | **FH 0 / FR 0**, classification **55.4%** (1035), hazard recall **58.9%** (300/509), unmatched **39.2%** (732), unknown **5.4%**, verdict **97.1%** (1005/1035) |
+| Golden measure | **FH 0**, classification **55.6%**, verdict **97.1%** |
+| Smoke | **1291 ALL PASS**; `npx tsc --noEmit` clean |
+
+**Standing directive: the DEVICE ROUND is the next mandatory step.** Install
+the release APK, run camera/gallery scans, pull `scan-debug.jsonl`, and measure
+AC-14..AC-24. No new features or data work before it.

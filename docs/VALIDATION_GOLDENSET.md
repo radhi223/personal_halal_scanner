@@ -674,6 +674,10 @@ Merged with the original 21-image dev set and normalized:
 
 Expected distribution (dev): halal 1350 / syubhat 438 / haram 76 / unknown 5.
 
+Category distribution (protocol §2.1 codes, from the GT record `category` field):
+**dev** SN 29 / PM 17 / DR 19 / ND 9 / BR 8 / DY 5 / SE 3 / FZ 3 (93 records);
+**holdout** PM 4 / SN 4 / DY 3 / DR 3 / BR 2 / SE 1 (17 records).
+
 ### AC-0 (validity precondition) — **ALL PASS**
 
 | # | Requirement | Target | Minimum | Actual | Verdict |
@@ -692,10 +696,10 @@ Expected distribution (dev): halal 1350 / syubhat 438 / haram 76 / unknown 5.
 |---|---|
 | OCR recall exact | 49.6% (927/1869) |
 | OCR recall variant | **56.4%** (1054/1869) |
-| Classification recall | **55.5%** (1038/1869) |
-| Verdict accuracy (emitted) | **97.0%** (1007/1038) |
+| Classification recall | **55.6%** (session 8b) |
+| Verdict accuracy (emitted) | **97.1%** (session 8b) |
 | Unknown rate | 44.5% (catalog-unknown 96, unmatched 735) |
-| False-halal | **1** |
+| False-halal | **0** (session 8b; was 1, fixed by the modifier-prefix boundary repair) |
 | False-haram | **0** |
 | Status-preference repairs | 44 risky GT items re-pointed to their risk-determining sub-part |
 | Strip recoveries kept | 10 images (e.g. off2_4902715927824 7 -> 342 chars, off2_4902165167887 9 -> 295) |
@@ -707,30 +711,63 @@ the harness (`commons/commons_8752933.jpg`).
 
 | Metric | Current | Threshold | Verdict |
 |---|---|---|---|
-| False-halal | **1** | <= 0 | **FAIL** |
+| False-halal | **0** | <= 0 | **PASS** |
 | False-haram | **0** | <= 0 | **PASS** |
-| Classification recall | **55.3%** | >= 90.0% | FAIL |
-| Hazard recall | **58.5%** (298/509) | >= 95.0% | FAIL |
+| Classification recall | **55.4%** (1035/1868) | >= 90.0% | FAIL |
+| Hazard recall | **58.9%** (300/509) | >= 95.0% | FAIL |
 | Unknown rate | **5.4%** | <= 3.0% | FAIL |
-| Unmatched rate | **39.3%** | <= 7.0% | FAIL |
-| Verdict accuracy (emitted) | 97.0% (1002/1033) | >= 97% | PASS (borderline) |
-| E2E correct recall | 53.6% (1002/1868) | >= 85% | FAIL |
+| Unmatched rate | **39.2%** (732/1868) | <= 7.0% | FAIL |
+| Verdict accuracy (emitted) | 97.1% (1005/1035) | >= 97% | PASS |
+| E2E correct recall | 53.8% (1005/1868) | >= 85% | FAIL |
 | Over-caution T2 | 1.3% (24) | <= 3% | PASS |
 | Noise leakage | 31.2% (455/1457 findings) | <= 2% | FAIL |
 
-### The single false-halal (OCR-limited)
+### The former single false-halal (OCR-limited) — fixed in session 8b
 
-| Image | GT | App | Entry | Cause |
+| Image | GT | App (pre-fix) | Entry | Cause |
 |---|---|---|---|---|
 | `off2/off2_4902715927824_ingredients.jpg` | 加工でん粉 (syubhat) | halal | `rule:starch`, matched `でん粉` | Strip-recovery OCR + section boundary cut the `加工` prefix; the surviving `でん粉` correctly hits the plain-starch halal rule. The curated modified-starch entry and `rule:modified-starch` cannot fire on a prefix that is not in the text. Not a matcher/rule hole. |
 
-This is 1 policy false-halal (AC-1b), not a dangerous one (AC-1a = 0; no
-pork/alcohol labelled halal).
+Fixed as a CLASS in session 8b (`src/lib/normalize.ts` `MODIFIER_PREFIXES` /
+`rawTextHasCompound` / `repairBoundaryChoppedModifier`): when the extracted
+section's first token is a known base and the RAW OCR still carries a known
+modifier+base compound contiguously (same-line whitespace tolerated, newline
+not), the modifier is grafted back. Gate **false-halal 1 -> 0** (golden
+measure 0 too); the class audit over 963 modifier x base pairs found 18
+dangerous pairs (compound stricter than base) and 0 where the compound is
+laxer, so a repair can only ever report the stricter verdict.
+
+### AC-5 per-category (session 8b, from `v3-report.json`)
+
+AC-5 groups GT occurrences by the GT record's protocol §2.1 category code
+(`gtCategory`; legacy GT without the field falls back to the heuristic guess).
+Convention: AC-5 counts **all** GT occurrences of a category, including items
+whose image was not covered by the harness run; those score as unmatched.
+
+| Category | Classification recall | Unmatched |
+|---|---|---|
+| SN | 57.9% | 34.3% |
+| FZ | 46.9% | 46.9% |
+| SE | ~49% | ~47% |
+| DR | 56.0% | 37.3% |
+| ND | 52.2% | 45.3% |
+| DY | 73.4% | 18.8% |
+| BR | 60.6% | 35.6% |
+| PM | 50.5% | 45.9% |
+
+- **AC-5 MUST (>= 85% each): FAIL for every category** (best is DY at 73.4%).
+- Unmatched is **systemic**: every category loses 18.8-47.3% of its occurrences
+  to extraction/OCR. By absolute count SN / PM / ND lead only because they hold
+  the most GT occurrences (623 / 412 / 245). The bottleneck is extraction, not
+  vocabulary or category-specific matching.
+- False-halal is now **0** in both the gate and the golden measure after the
+  modifier-prefix class fix.
 
 ## 12. Why the expanded number is lower, and why it is the honest one
 
 The original 21-image dev measured classification 82.6-82.8% (OCR variant
-80.1%). The same pipeline on the expanded 93-image dev measures 55.5%. That
+80.1%). The same pipeline on the expanded 93-image dev measures 55.6% (session
+8b final; 55.5% pre-FH-class-fix). That
 drop is the corpus, not a regression:
 
 - the new 72 images are real Open Food Facts user photos: curved bottles, glare,
@@ -742,8 +779,8 @@ drop is the corpus, not a regression:
 
 The 55% is the number that should be quoted. The gate tool thresholds (AC-4/6/8,
 and consequently AC-9/10) **still fail**: coverage and hazard recall on hard real
-photos remain the main open problem, not verdict correctness (97.0% among
-emitted).
+photos remain the main open problem, not verdict correctness (97.1% among
+emitted, session 8b).
 
 ## 13. Harness limitation (unchanged)
 

@@ -1,11 +1,12 @@
 # PROGRESS REPORT — personal_halal_scanner (halal scanner for Japanese food labels)
 
-Date: 2026-10-03 (session 8, expanded-corpus round + release R3)
+Date: 2026-10-04 (session 8b, FH-class fix + AC-5 coverage + release R4)
 Repo: `D:\hls` (moved from `D:\Code\personal_halal_scanner` — Windows MAX_PATH)
-Artifacts root: `D:\opencode\temp` (goldenset, v2 reports)
-Status vs "siap dipakai sehari-hari": **NOT YET — corpus gate passes AC-0, safety is
-within 1 OCR-limited false-halal, accuracy/coverage thresholds still fail offline,
-device runs and the sealed holdout gate are pending.**
+Artifacts root: `D:\opencode\temp` (goldenset, v2/v3 reports)
+Status vs "siap dipakai sehari-hari": **NOT YET — corpus gate passes AC-0 and
+AC-1/AC-2 (FH 0 / FR 0); AC-5 is now measured and fails every category
+(46.9-73.4%); accuracy/coverage thresholds still fail offline, and the device
+round + the sealed holdout gate are pending. Device round is the next step.**
 
 ---
 
@@ -20,19 +21,20 @@ Current status in one screen:
 
 | Item | Value |
 |---|---|
-| Working tree | clean after this round; tree `6e9c990` + docs commit |
-| Smoke tests | **1272 PASS / 0 FAIL** (`npm run smoke`) |
+| Working tree | clean after this round; tree `5ab048f` + docs commit (session 8b) |
+| Smoke tests | **1291 PASS / 0 FAIL** (`npm run smoke`) |
 | TypeScript | `npx tsc --noEmit` clean |
 | Golden DEV (expanded) | 93 images / 1869 items / 509 hazards |
 | Golden HOLDOUT | sealed, 16 images (17 records) / 196 items / 47 hazards |
 | Corpus totals | 109 distinct images / 110 records / ~2065 occurrences / ~556 hazards |
 | AC-0 validity | **ALL PASS** (was FAIL at 38 images / 394 items / 79 hazards) |
-| Gate false-halal | **1** (policy, OCR-limited: `off2_4902715927824` 加工でん粉 prefix cut) |
+| Gate false-halal | **0** (session 8b modifier-prefix class fix; was 1, OCR-limited) |
 | Gate false-haram | **0** |
 | Gate dangerous false-halal | **0** (no pork/alcohol labelled halal) |
-| Classification (expanded dev) | **55.5%** golden / **55.3%** gate |
-| Verdict accuracy among emitted | **97.0%** |
-| Hazard recall | **58.5%** (298/509) |
+| Classification (expanded dev) | **55.6%** golden / **55.4%** gate |
+| AC-5 per category | measured; **FAIL all 8 categories** (46.9-73.4% classification) |
+| Verdict accuracy among emitted | **97.1%** |
+| Hazard recall | **58.9%** (300/509) |
 | Strip recovery | sparse strips 8 -> 1115 chars (`off_4823077629518`, 2122x362) |
 | Synthetic eval (0/15/30% OCR error) | 99.8 / 92.1 / 84.5 (19/19 assertions) |
 | Curated data | 955 entries / 1237 names; 538 E-codes; 10,805 catalog; 70 rules |
@@ -42,7 +44,8 @@ Current status in one screen:
 The headline change of this round is honesty of measurement: the golden set
 grew from a hand-picked 21-image dev set (58% not covered) to a 93-image
 expanded dev set built from 72 real Open Food Facts photos. The measured
-classification dropped from 82.6% to 55.5% — that drop is the corpus being
+classification dropped from 82.6% to 55.5% (55.6% after the session-8b FH-class
+fix) — that drop is the corpus being
 hard, not the code regressing (the original 21 images are a subset of the 93).
 
 ---
@@ -123,7 +126,7 @@ Timing baseline: ~3.9 s typical (2 passes), ~8 s for 3 passes; originally
 | `src/data/ecodes.json` | 538 E-numbers (MUIS-arbitrated) |
 | `src/data/catalog.json` | 10,805 unreviewed names (taxonomy + JP tokens) |
 | `src/data/addi-citations.json` | 387 ADDI provenance citations |
-| `scripts/smoke.ts` | 1272 assertions, 93 numbered sections + invariant pins |
+| `scripts/smoke.ts` | 1291 assertions, 94 numbered sections + invariant pins |
 | `scripts/eval.ts` | Synthetic matching eval + 19 high-stakes assertions |
 | `scripts/eval-real.ts` | Real-image batch harness (Paddle; mirrors app path) |
 | `scripts/validate-real.ts` | Golden-set gate metrics (AC-1..AC-11) + report |
@@ -148,7 +151,7 @@ Timing baseline: ~3.9 s typical (2 passes), ~8 s for 3 passes; originally
 | Catalog | **10,805** | 5,619 taxonomy + 5,186 JP label tokens (Open Food Facts, ODbL) |
 | ADDI citations | 387 | ADDI Lab / ITS Surabaya RDF (ODbL) |
 | Keyword rules | **70** | `id: '...'` CurationRule objects in `src/lib/rules.ts` |
-| Smoke assertions | **1272** | all PASS |
+| Smoke assertions | **1291** | all PASS |
 
 ### Policy summary (HANDOVER §6)
 
@@ -188,6 +191,7 @@ LPPOM "Positive List" is never displayed as "HALAL".
 | Meat mention count | a token with ONE animal mention + a non-claim marker is dropped; anything else stays an ingredient claim | §15/§16 |
 | Vitamin anchoring | `^v[ce](\d{1,2})?$` only — VEAL/VERMOUTH can never be halal:vitamin | §50n |
 | Modified starch | `rule:modified-starch` ordered before generic starch/thickener halal rules | §52/§53 |
+| Modifier-prefix boundary repair | boundary-chopped modifier+base first token restored only when the raw OCR carries the compound; 963-pair audit 18 dangerous / 0 laxer (never laxifies a verdict) | §54 |
 
 ---
 
@@ -201,6 +205,8 @@ LPPOM "Positive List" is never displayed as "HALAL".
 | Gate tool on 21-dev | 82.5% | — | — | — | 14.5% | 0 / 0 | — |
 | **Expanded DEV, 93 img / 1869 items** golden measure | **55.5%** | **97.0%** | **56.4%** | 44.5% (96 catalog + 735 unmatched) | — | **1 / 0** | 1272 |
 | **Expanded DEV**, gate tool (92/93 covered, 1868 occ.) | **55.3%** | **97.0%** | 56.2% | **5.4%** | **39.3%** | **1 / 0** | 1272 |
+| **Expanded DEV**, gate tool + FH-class fix (session 8b, 92/93 covered, 1868 occ.) | **55.4%** | **97.1%** | 56.2% | **5.4%** | **39.2%** | **0 / 0** | **1291** |
+| **Expanded DEV**, golden measure after FH-class fix (session 8b) | **55.6%** | **97.1%** | — | — | — | **0 / 0** | **1291** |
 | Synthetic eval (300 labels, 0/15/30% error) | — | — | recall 99.8 / 92.1 / 84.5 | unknown 0.2/3.2/5.9 | unmatched 0.0/4.6/9.7 | 0 / 0 | 19/19 assertions |
 
 Why the expanded number is lower — and why it is the honest number:
@@ -211,14 +217,15 @@ Why the expanded number is lower — and why it is the honest number:
 - The original 21 images are a strict subset of the 93, so the expanded metric
   is the conservative measurement of the same code.
 - The collapse in classification comes overwhelmingly from OCR/extraction
-  coverage (unmatched 39.3%), not from wrong verdicts: among emitted verdicts
-  the app is still right 97.0% of the time.
+  coverage (unmatched 39.2%), not from wrong verdicts: among emitted verdicts
+  the app is still right 97.1% of the time.
 - Synthetic eval and corpus-frequency coverage (87.7%) remain **upper bounds**
   only, never validation evidence.
 
 False-halal progression after the expanded GT was built:
-**36 -> 33 (after GT normalization/alignment) -> 5 (FIX-B) -> 1 (FIX-C)**.
-The single remaining case is OCR-limited (below).
+**36 -> 33 (after GT normalization/alignment) -> 5 (FIX-B) -> 1 (FIX-C) -> 0
+(session 8b modifier-prefix class fix)**. The former remaining case was
+OCR-limited (below); it is now fixed as a class.
 
 ---
 
@@ -243,19 +250,19 @@ MB-based crop.
 
 | # | Criterion | Current (dev) | Target | Status |
 |---|---|---|---|---|
-| AC-1 | False-halal pooled | 1 | 0 | **FAIL** |
+| AC-1 | False-halal pooled | 0 | 0 | **PASS** (session 8b FH-class fix) |
 | AC-1a | Dangerous FH (expected haram) | 0 | 0 | PASS |
-| AC-1b | Policy FH (expected syubhat) | 1 | 0 | FAIL |
+| AC-1b | Policy FH (expected syubhat) | 0 | 0 | PASS |
 | AC-2 | False-haram | 0 | 0 | PASS |
 | AC-3 | Haram-by-fuzzy | 0 (invariant; audit fuzzy violations 0) | 0 | PASS |
 | AC-4 | Token recall (extraction) | 56.2% (variant) | >= 90% | FAIL |
-| AC-5 | Per-category recall | not computable | >= 85% each | NOT MEASURED (GT has no protocol category field) |
-| AC-6 | Verdict yield | ~55.3% | >= 90% | FAIL |
+| AC-5 | Per-category recall | measured: 46.9-73.4% (all 8 categories below bar) | >= 85% each | **MEASURED — FAIL all** |
+| AC-6 | Verdict yield | ~55.4% | >= 90% | FAIL |
 | AC-7 | Unknown rate | 5.4% | <= 3% | FAIL |
-| AC-8 | Unmatched rate | 39.3% | <= 7% | FAIL |
-| AC-9 | High-risk recall | 58.5% (298/509) | >= 95% | FAIL |
-| AC-10 | E2E correct recall | 53.6% | >= 85% | FAIL |
-| AC-11 | Verdict accuracy among emitted | 97.0% | >= 97% | PASS (borderline) |
+| AC-8 | Unmatched rate | 39.2% | <= 7% | FAIL |
+| AC-9 | High-risk recall | 58.9% (300/509) | >= 95% | FAIL |
+| AC-10 | E2E correct recall | 53.8% | >= 85% | FAIL |
+| AC-11 | Verdict accuracy among emitted | 97.1% | >= 97% | PASS |
 | AC-12 | Over-caution T2 | 1.3% (24) | <= 3% | PASS |
 | AC-13 | Noise leakage | 31.2% (455/1457) | <= 2% | FAIL |
 | AC-14 | Section CER (merged) | not measured offline | <= 10% | PENDING device |
@@ -265,24 +272,27 @@ MB-based crop.
 | AC-20 | Crash-free scans | — | 0 over >= 100 scans | PENDING device |
 | AC-21 | Graceful Paddle failure | behavior exists (ML Kit fallback) | <= 2 scans | PENDING device |
 | AC-22 | Offline 10 scans | first-run Paddle download known | 10/10 | PENDING device |
-| AC-23 | Regression | smoke 1272 PASS; eval 19/19 | all pass | PASS |
+| AC-23 | Regression | smoke 1291 PASS; eval 19/19 | all pass | PASS |
 | AC-24 | No record loss | rotation cap 40; pull <= 30 scans/run | MUST | PENDING device (operational) |
 | AC-25 | 20 real purchase checks | — | 0 dangerous contradictions | PENDING |
 
 The gate as a whole: **FAIL** (as expected at this stage). The failure is
-coverage/hazard-recall on hard real photos plus 1 OCR-limited policy
-false-halal; verdict correctness and safety direction are strong (97.0% among
-emitted, 0 dangerous FH, 0 FR).
+coverage/hazard-recall on hard real photos (AC-4/6/8/9/10/13) and AC-5
+per-category recall; safety direction is now clean (0 FH, 0 FR, 0 dangerous
+FH) and verdict correctness among emitted is 97.1%.
 
-### The single false-halal
+### The former single false-halal (fixed in session 8b)
 
-| Image | GT | App | Entry | Root cause |
+| Image | GT | App (pre-fix) | Entry | Root cause |
 |---|---|---|---|---|
 | `off2/off2_4902715927824_ingredients.jpg` | 加工でん粉 (syubhat) | halal | `rule:starch` (matched `でん粉`) | Strip-recovery OCR + section boundary cut the `加工` prefix; the bare `でん粉` correctly maps to plain-starch halal. Matcher and `rule:modified-starch` never see the prefix. |
 
-Classification: **OCR/EXTRACT gap**, not rule/data/matcher. Fix direction:
-boundary/segment handling for strips (keep the full token, or re-attach a
-prefix that the section start cut), plus a smoke pin.
+Classification: **OCR/EXTRACT gap**, not rule/data/matcher. Fixed as a CLASS in
+session 8b: `repairBoundaryChoppedModifier` (`src/lib/normalize.ts`) re-prefixes
+the section's first token only when the raw OCR carries a known modifier+base
+compound contiguously; the 963-pair audit found 18 dangerous pairs (compound
+stricter) and 0 laxer, so a repair never laxifies. Gate + golden false-halal
+now 0; smoke §54 pins the case. See `docs/DEBUG_LOG.md` session 8b.
 
 ---
 
@@ -321,23 +331,31 @@ smoke grew to ~800+.
 
 ## 9. Known limitations and open risks
 
-1. **The 1 OCR-limited false-halal** — `off2_4902715927824` 加工でん粉 (syubhat)
-   became halal via `rule:starch` because the `加工` prefix was cut at the
-   section boundary after strip recovery. It is policy-level, not dangerous
-   (no pork/alcohol was labelled halal), but AC-1 remains FAIL until fixed.
+1. **Former 1 OCR-limited false-halal (fixed)** — `off2_4902715927824`
+   加工でん粉 became halal via `rule:starch` because the `加工` prefix was cut
+   at the section boundary. Fixed as a class in session 8b (modifier-prefix
+   boundary repair); gate + golden false-halal now 0. Blind-graft theoretical
+   over-caution remains: a repair could in theory re-prefix a genuinely bare
+   first token when the compound appears elsewhere in the raw blob. The class
+   audit shows a graft can only ever produce the stricter compound verdict
+   (18 dangerous pairs / 0 laxer), and the over-caution scan found exactly one
+   graft event corpus-wide with **zero dev occurrences** of a bare base
+   expected halal being grafted.
 2. **Harness fidelity** — the offline harness runs PaddleOCR only. ML Kit, the
    adaptive 3rd pass, camera optics and MB-based crop are not measurable
    offline; device runs (AC-14..AC-24) are required before any pass claim.
 3. **Unverified device paths** — no device validation since 2026-09-27. The
    expanded corpus has never been scanned on the phone; latency, crash-free,
    offline, and mixed-engine merge behavior on the new categories are unknown.
+   **The device round is the next mandatory step.**
 4. **E1421 / E1520 MUIS-only codes** — E1520 (Propylene Glycol) is syubhat with
    MUIS as its only source; E1421 is halal from MUIS plus a community source
    whose alias reads "trimetaphosphate or phosphorus". These two rest on a
    single certifier; no second independent confirmation exists in the dataset.
 5. **Corpus source bias** — the expanded GT is OFF/OFF2 user photos plus
-   Commons; products without photos and many retail categories are missing; GT
-   records have no protocol category field (AC-5 not computable); 1 GT image
+   Commons; products without photos and many retail categories are missing.
+   GT records now carry the protocol category field, so AC-5 is measured
+   (46.9-73.4% classification; all 8 categories fail the 85% bar); 1 GT image
    (`commons/commons_8752933.jpg`) has no harness record.
 6. **Residual data issues** — sodiumcaseinate status conflict
    (syubhat/halal across sources), 2 curated name collisions, and the V1-audit
@@ -348,24 +366,23 @@ smoke grew to ~800+.
 
 ## 10. Remaining path to the gate
 
-1. **Fix the 1 OCR-limited false-halal** — make the section boundary/token
-   handling keep the `加工` prefix for strips (or re-attach it), then re-run
-   dev and add a smoke pin. This is the only AC-1 blocker.
-2. **Device validation runs (Phase 0-4 of the protocol)** — attach the phone,
-   run `adb` dev gallery + camera subset, pull `scan-debug.jsonl` (cap 40;
+1. **Device round FIRST (mandatory)** — install the release APK, run
+   camera/gallery scans across categories, pull `scan-debug.jsonl` (cap 40;
    pull after <= 30 scans or raise the cap), and feed `validate-real --mode
-   device`. Measure latency (AC-16..19), crashes (AC-20), Paddle fallback
-   (AC-21), offline (AC-22), CER (AC-14/15).
-3. **Close accuracy thresholds** — AC-4/6/8/9/10 need OCR/extraction coverage
-   work: strip/crop handling on curved and multi-column labels, confusion
-   pairs, and targeted data coverage for the remaining unmatched clusters.
-   AC-13 noise leakage needs matcher/extraction tightening.
-4. **Sealed holdout final run** — open once when dev converges (Phase 6), apply
+   device`. Measure AC-14..AC-24: latency (AC-16..19), crashes (AC-20), Paddle
+   fallback (AC-21), offline (AC-22), CER (AC-14/15). **No new features or data
+   work before this step.**
+2. **Extraction robustness** — close AC-4/6/8/9/10 and lift AC-5: strip/crop
+   handling on curved and multi-column labels, confusion pairs, and targeted
+   data coverage for the remaining unmatched clusters. AC-13 noise leakage
+   needs matcher/extraction tightening. Device data from step 1 sets the
+   priorities.
+3. **Sealed holdout final run** — open once when dev converges (Phase 6), apply
    §1.5, and burn the holdout only if a fix is authored after seeing its
    output. Holdout stays sealed until then.
-5. **AC-25 trial** — 20 real shopping/purchase checks with the frozen APK,
+4. **AC-25 trial** — 20 real shopping/purchase checks with the frozen APK,
    logging contradictions; declare daily-use only if 0 dangerous events.
-6. **Optional new photos** — no longer required for AC-0 (corpus now passes).
+5. **Optional new photos** — no longer required for AC-0 (corpus now passes).
    More photos would still help category balance and AC-5, and the protocol
    allows expanding up to 96/24; the quota option remains, not a blocker.
 
@@ -418,7 +435,9 @@ a65d643 feat(validation): gate tooling (GT validator + run reporter)
 e4d9d62 docs: golden two-set structure, dev metrics, agent-round record
 6b723e5 feat(ocr): strip-tile recovery + faithful harness (strip retry, tile800, alignment)
 6e9c990 fix(data): English curated set, modified-starch variants, OCR folds, meat-extract gaps
-<docs commit> docs: expanded-corpus validation, agent-round log, full progress report
+34b69d7 docs: expanded-corpus validation, agent-round log, full progress report
+5ab048f fix(extraction): modifier-prefix boundary repair + AC-5 per-category reporting
+<docs commit> docs: AC-5 rollout, FH-class fix, session 8b record
 ```
 
 All session-8 commits pushed to `origin/main`.
@@ -449,7 +468,7 @@ All session-8 commits pushed to `origin/main`.
 - Tests / validation:
 
   ```powershell
-  npm run smoke            # 1272 assertions
+  npm run smoke            # 1291 assertions
   npx tsc --noEmit
   npx tsx scripts/eval.ts  # synthetic eval, 19/19 assertions
   npx tsx scripts/validate-real.ts --mode harness `
