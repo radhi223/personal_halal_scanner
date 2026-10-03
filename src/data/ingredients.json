@@ -200,7 +200,7 @@
     },
     {
       "id": "carmine",
-      "names": ["カルミン", "カルミン酸", "コチニール色素", "carmine", "cochineal"],
+      "names": ["カルミン", "カルミン酸", "コチニール色素", "carmine", "cochineal", "コチニール", "こちにーるしきそ"],
       "status": "syubhat",
       "category": "colorant",
       "reasoning": "Karmin berasal dari serangga cochineal. Ulama berbeda pendapat: sebagian membolehkan (serangga tidak berdarah mengalir), sebagian menghindari. Bila ada alternatif lain lebih baik.",
@@ -218,9 +218,9 @@
     {
       "id": "sorbitol",
       "names": ["ソルビトール", "sorbitol"],
-      "status": "syubhat",
+      "status": "halal",
       "category": "additive",
-      "reasoning": "Sorbitol umumnya dari glukosa (nabati), tetapi MUIS menandai E420 sebagai Syubhah/Doubtful karena sumber/cemaran. Ambil sikap hati-hati bila tak ada sertifikasi.",
+      "reasoning": "Sorbitol (E420) adalah gula-alkohol dari glukosa — non-khamr, umumnya halal. MUIS (2016) menandai E420 sebagai doubtful karena kemungkinan cemaran; bila ada sertifikasi, lebih meyakinkan.",
       "sources": ["MUIS Food Additive Listing (2016)", "EFSA — E420"],
       "eNumber": "E420"
     },
@@ -384,17 +384,6 @@
       "category": "animal",
       "reasoning": "Ekstrak daging/ikan tanpa kejelasan cara sembelih atau spesies. Perlu verifikasi; jika daging babi → haram.",
       "sources": ["LPPOM MUI — turunan hewan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "cochineal-color",
-      "names": ["コチニール色素", "コチニール", "こちにーるしきそ"],
-      "status": "syubhat",
-      "confidence": "medium",
-      "basis": "japan-label-rule",
-      "reviewed": true,
-      "category": "colorant",
-      "reasoning": "Pewarna merah dari serangga cochineal (E120). Ulama berbeda pendapat; sering dipakai di kamaboko dan produk merah muda Jepang.",
-      "sources": ["EFSA — E120", "LPPOM MUI — pewarna"]
     },
     {
       "id": "shiro-dashi",
@@ -839,12 +828,12 @@
     {
       "id": "exp:プロピレングリコール",
       "names": ["プロピレングリコール"],
-      "status": "syubhat",
+      "status": "halal",
       "confidence": "medium",
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "additive",
-      "reasoning": "プロピレングリコール adalah bahan tambahan yang sumbernya bergantung produsen (nabati/hewani, termasuk babi) — perlu verifikasi, syubhat.",
+      "reasoning": "Propilen glikol sintetis (petrokimia) — tidak berasal dari hewani/nabati yang diragukan; halal.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -921,7 +910,7 @@
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "additive",
-      "reasoning": "ラック adalah bahan tambahan yang sumbernya bergantung produsen (nabati/hewani, termasuk babi) — perlu verifikasi, syubhat.",
+      "reasoning": "Lac (lak/シェラック) adalah resin serangga — sama kelas keraguan dengan cochineal/carmine (E120); tanpa klarifikasi sumber, syubhat.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -932,7 +921,7 @@
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "additive",
-      "reasoning": "ラック色素 adalah bahan tambahan yang sumbernya bergantung produsen (nabati/hewani, termasuk babi) — perlu verifikasi, syubhat.",
+      "reasoning": "Lac (lak/シェラック) adalah resin serangga — sama kelas keraguan dengan cochineal/carmine (E120); tanpa klarifikasi sumber, syubhat.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -1365,17 +1354,6 @@
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
-      "id": "exp:硫酸",
-      "names": ["硫酸"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "硫酸 adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
       "id": "exp:磷脂",
       "names": ["磷脂"],
       "status": "syubhat",
@@ -1560,17 +1538,6 @@
       "reviewed": true,
       "category": "additive",
       "reasoning": "脹剤 adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
-      "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
-    },
-    {
-      "id": "exp:膨剤",
-      "names": ["膨剤"],
-      "status": "halal",
-      "confidence": "medium",
-      "basis": "cross-source",
-      "reviewed": true,
-      "category": "additive",
-      "reasoning": "膨剤 adalah bahan tambahan yang umumnya bersumber nabati/mikroba/mineral — halal.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -2489,12 +2456,12 @@
     {
       "id": "exp:ローヤルゼリー",
       "names": ["ローヤルゼリー"],
-      "status": "syubhat",
+      "status": "halal",
       "confidence": "low",
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "animal",
-      "reasoning": "ローヤルゼリー adalah sekresi lebah; umumnya halal tetapi sebagian ulama memperdebatkan statusnya — syubhat.",
+      "reasoning": "Royal jelly adalah sekresi lebah madu; LPPOM MUI menggolongkan produk lebah (madu, royal jelly, propolis) sebagai halal.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -3050,12 +3017,12 @@
     {
       "id": "exp:柠檬黄",
       "names": ["柠檬黄"],
-      "status": "syubhat",
+      "status": "halal",
       "confidence": "low",
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "colorant",
-      "reasoning": "柠檬黄 adalah pewarna generik yang bisa nabati, sintetis, atau serangga/hewani — perlu verifikasi.",
+      "reasoning": "Pewarna sintetis azo (E102/E129) — sintetis penuh, umumnya dihalalkan (senada dengan daftar MUI untuk pewarna sintetis).",
       "sources": ["EFSA — pewarna", "LPPOM MUI — pewarna"]
     },
     {
@@ -3116,12 +3083,12 @@
     {
       "id": "exp:诱惑红",
       "names": ["诱惑红"],
-      "status": "syubhat",
+      "status": "halal",
       "confidence": "low",
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "colorant",
-      "reasoning": "诱惑红 adalah pewarna generik yang bisa nabati, sintetis, atau serangga/hewani — perlu verifikasi.",
+      "reasoning": "Pewarna sintetis azo (E102/E129) — sintetis penuh, umumnya dihalalkan (senada dengan daftar MUI untuk pewarna sintetis).",
       "sources": ["EFSA — pewarna", "LPPOM MUI — pewarna"]
     },
     {
@@ -9571,14 +9538,14 @@
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
-      "id": "exp:梅酢バウダー",
-      "names": ["梅酢バウダー"],
+      "id": "exp:梅酢パウダー",
+      "names": ["梅酢パウダー"],
       "status": "syubhat",
       "confidence": "low",
       "basis": "japan-label-rule",
       "reviewed": true,
       "category": "seasoning",
-      "reasoning": "梅酢バウダー adalah bumbu cair/olahan yang dapat mengandung alkohol, kecap fermentasi, atau ekstrak hewani — perlu verifikasi.",
+      "reasoning": "梅酢パウダー adalah bumbu cair/olahan yang dapat mengandung alkohol, kecap fermentasi, atau ekstrak hewani — perlu verifikasi.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -9648,25 +9615,25 @@
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
-      "id": "exp:アスパルチーム",
-      "names": ["アスパルチーム"],
+      "id": "exp:アスパルテーム",
+      "names": ["アスパルテーム"],
       "status": "halal",
       "confidence": "medium",
       "basis": "cross-source",
       "reviewed": true,
       "category": "sweetener",
-      "reasoning": "アスパルチーム adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
+      "reasoning": "アスパルテーム adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
-      "id": "exp:アセスルファk",
-      "names": ["アセスルファk"],
+      "id": "exp:アセスルファムK",
+      "names": ["アセスルファムK"],
       "status": "halal",
       "confidence": "medium",
       "basis": "cross-source",
       "reviewed": true,
       "category": "sweetener",
-      "reasoning": "アセスルファk adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
+      "reasoning": "アセスルファムK adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
@@ -9692,14 +9659,14 @@
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
-      "id": "exp:クラロース",
-      "names": ["クラロース"],
+      "id": "exp:スクラロース",
+      "names": ["スクラロース"],
       "status": "halal",
       "confidence": "medium",
       "basis": "cross-source",
       "reviewed": true,
       "category": "sweetener",
-      "reasoning": "クラロース adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
+      "reasoning": "スクラロース adalah pemanis (gula/poliol/glikosida) — halal, tidak memabukkan.",
       "sources": ["LPPOM MUI — bahan tambahan", "JAKIM MS1500:2019"]
     },
     {
