@@ -603,3 +603,44 @@ No git commit was made. Files added by this run: this report
 (`docs/VALIDATION_GOLDENSET.md`) and the four artifacts above. The golden set
 is the first reusable ground truth for regression testing the OCR → extract →
 classify path on real labels.
+
+---
+
+## 9. Two-set structure (2026-10-03)
+
+The golden set is split into a **DEV** set (used to iterate and meter during
+agent rounds) and a sealed **HOLDOUT** set (final gate only). The two are carved
+per plan, **disjoint**, and no pipeline run is allowed against the holdout.
+
+| Set | Images | Items | Hazards | Location |
+|---|---|---|---|---|
+| DEV | 21 | 201 | 33 | `golden/dev/dev.json` |
+| HOLDOUT (sealed) | 16 (17 records; `commons_86947455` two panels) | 196 | 47 | `golden/holdout/holdout.json` |
+
+### DEV metrics (golden measure)
+
+| Metric | Value |
+|---|---|
+| OCR variant | 80.1-80.8% |
+| Classification | 82.6-82.8% |
+| Verdict accuracy | 95.2-95.7% |
+| Unknown | ~17% (measure) / 3.0% (harness unknown-rate) |
+| False-halal | 0 |
+| False-haram | 0 |
+
+### Gate-tool numbers (`scripts/validate-real`)
+
+| Metric | Value |
+|---|---|
+| Classification | 82.5% |
+| Hazard recall | 78.8% |
+| Unmatched | 14.5% |
+| AC-1 / AC-2 | PASS |
+| Recall thresholds | **FAIL** — the offline harness lacks ML Kit + adaptive OCR, and the corpus is below protocol minimums |
+
+### AC-0 status
+
+38 images / 394 items / 79 hazards vs minimums **64 / 500 / 90**. The set needs
+~30 new hazard-heavy photos across the missing categories (instant noodles,
+frozen food, seasonings, bottled drinks, snacks, dairy) before the holdout gate
+can be run.

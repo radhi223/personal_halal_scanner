@@ -162,3 +162,30 @@ claim so NOISE_RE cannot swallow it. Bare 使用/使った/製品 are positive c
 Metrics after the round: golden classification recall 83.7% (was 66.9%),
 unknown 16.3% (was 33.1%), verdict accuracy 86.3%, false-halal 0,
 false-haram 0; smoke ~990 assertions ALL PASS.
+
+## Agent round 2026-10-03 (8-agent evaluation -> 8-agent implementation -> G1-G5)
+
+| Phase | Agents | Result |
+|---|---|---|
+| Evaluation cluster | 8 | found the vitamin `/ve|vc/` false-halal (VEAL/VERMOUTH) + rule/data gaps |
+| Implementation | 8 | F1 lib, F2 UX, F3 data, F4-F7 transcription+consistency, F8 gate tools |
+| Release | G1-G5 | fix + cleanup + 5 commits + docs + release APK |
+
+Key numbers: smoke ~1,120+ assertions ALL PASS; golden DEV 21 images / 201
+items / 33 hazards; sealed HOLDOUT 16 images (17 records) / 196 items / 47
+hazards; verdict accuracy 95.2-95.7%, false-halal 0, false-haram 0;
+`validate-real` classification 82.5%, hazard recall 78.8%, unmatched 14.5%
+(AC-1/AC-2 PASS; recall thresholds still FAIL — offline harness lacks ML
+Kit/adaptive).
+
+Vitamin fix (G4 pre-release blocker): the vitamin rule carried bare `/vc/` and
+`/ve/` (added for OCR abbreviations of ビタミンC/E), which matched ANY token
+containing them: `VEAL` (young beef) -> `halal:rule:vitamin` and `VERMOUTH`
+(alcohol) -> `halal`. Both are false-halal on meat/alcohol. The Latin forms are
+now anchored to the WHOLE normalized token, `/^v[ce](\d{1,2})?$/` (covers
+VC/VE/VC12; `normalize()` strips dots so `V.C` already arrives as `vc`). VEAL
+and VERMOUTH now fall through to unreviewed `unknown` catalog entries — never
+halal. Pinned in `scripts/smoke.ts` §50n.
+
+GT annotation fix: the 消泡剤 entry was split (消泡剤 vs the generic 消泡 form) so
+the ground truth matches the pipeline's token split.
