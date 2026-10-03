@@ -589,7 +589,7 @@ findings out of 43 images with no ground truth; this is the first run where
 ```powershell
 # 1. measurement (needs the repo's node_modules; goldenset/node_modules is a
 #    junction to it because the script lives outside the repo)
-npx tsx --tsconfig D:/Code/personal_halal_scanner/tsconfig.json `
+npx tsx --tsconfig D:/hls/tsconfig.json `
   D:/opencode/temp/goldenset/measure.ts
 
 # 2. artifacts
@@ -638,9 +638,117 @@ per plan, **disjoint**, and no pipeline run is allowed against the holdout.
 | AC-1 / AC-2 | PASS |
 | Recall thresholds | **FAIL** — the offline harness lacks ML Kit + adaptive OCR, and the corpus is below protocol minimums |
 
-### AC-0 status
+### AC-0 status (before the expansion)
 
 38 images / 394 items / 79 hazards vs minimums **64 / 500 / 90**. The set needs
 ~30 new hazard-heavy photos across the missing categories (instant noodles,
 frozen food, seasonings, bottled drinks, snacks, dairy) before the holdout gate
 can be run.
+
+---
+
+# Expanded corpus (2026-10-03, session 8)
+
+Base: `6e9c990` working tree (strip-tile recovery + data/fold fixes). Artifacts:
+`golden/dev/dev.json`, `golden/holdout/holdout.json`,
+`D:/opencode/temp/v2-harness.json`, `D:/opencode/temp/v2-report.json`,
+`D:/opencode/temp/v2-validate.txt` (gate tool), `D:/opencode/temp/v2-golden.txt`
+(golden measure). Repo path is now `D:\hls` (the old `D:\Code\personal_halal_scanner`
+in earlier reports is stale — moved for Windows MAX_PATH).
+
+## 10. Corpus structure
+
+72 new hazard-heavy OFF-JP images were harvested (`p1-harvest-report.md`:
+instant noodles 10, frozen 10, seasonings 10, bottled drinks 16, snacks 10,
+dairy 16; ~569 hazard occurrences by OFF text, not GT) and hand-transcribed by
+8 transcription agents (batches `new-gt2/b1..b8.json`, 72 records / 1455 items).
+Merged with the original 21-image dev set and normalized:
+**1656 GT items -> 1869** (80 compound items split per protocol; 25 parents kept;
+268 sub-items added), 0 invalid items.
+
+| Set | Images | Items | Hazards | Location |
+|---|---|---|---|---|
+| DEV | **93 (92 scored by harness)** | **1869** | **509** | `golden/dev/dev.json` |
+| HOLDOUT (sealed) | 16 images (17 records; `commons_86947455` two panels) | 196 | 47 | `golden/holdout/holdout.json` |
+| **Corpus total** | **109 distinct images / 110 records** | **~2065** | **~556** | |
+
+Expected distribution (dev): halal 1350 / syubhat 438 / haram 76 / unknown 5.
+
+### AC-0 (validity precondition) — **ALL PASS**
+
+| # | Requirement | Target | Minimum | Actual | Verdict |
+|---|---|---|---|---|---|
+| AC-0a | Golden-set images | 96 | 64 | 110 records (93 dev + 17 holdout) | **PASS** |
+| AC-0b | GT occurrences | >= 1,100 | >= 500 | 2,065 | **PASS** |
+| AC-0c | High-risk occurrences | >= 150 | >= 90 | 556 (509 dev + 47 holdout) | **PASS** |
+| AC-0d | Holdout | 24 images | 16 | 16 images / 17 records | **PASS (minimum)** |
+| AC-0e | Real photos | >= 60 | >= 40 | 110/110 (OFF / OFF2 / Commons; no renders) | **PASS** |
+
+## 11. Expanded-dev metrics
+
+### Golden measure (`scripts/measure.ts` via `gt-summary-v2.json`)
+
+| Metric | Value |
+|---|---|
+| OCR recall exact | 49.6% (927/1869) |
+| OCR recall variant | **56.4%** (1054/1869) |
+| Classification recall | **55.5%** (1038/1869) |
+| Verdict accuracy (emitted) | **97.0%** (1007/1038) |
+| Unknown rate | 44.5% (catalog-unknown 96, unmatched 735) |
+| False-halal | **1** |
+| False-haram | **0** |
+| Status-preference repairs | 44 risky GT items re-pointed to their risk-determining sub-part |
+| Strip recoveries kept | 10 images (e.g. off2_4902715927824 7 -> 342 chars, off2_4902165167887 9 -> 295) |
+
+### Gate tool (`scripts/validate-real --mode harness`, `v2-validate.txt`)
+
+Covered **92/93** GT images; **1868** GT occurrences scored; 1 GT image not in
+the harness (`commons/commons_8752933.jpg`).
+
+| Metric | Current | Threshold | Verdict |
+|---|---|---|---|
+| False-halal | **1** | <= 0 | **FAIL** |
+| False-haram | **0** | <= 0 | **PASS** |
+| Classification recall | **55.3%** | >= 90.0% | FAIL |
+| Hazard recall | **58.5%** (298/509) | >= 95.0% | FAIL |
+| Unknown rate | **5.4%** | <= 3.0% | FAIL |
+| Unmatched rate | **39.3%** | <= 7.0% | FAIL |
+| Verdict accuracy (emitted) | 97.0% (1002/1033) | >= 97% | PASS (borderline) |
+| E2E correct recall | 53.6% (1002/1868) | >= 85% | FAIL |
+| Over-caution T2 | 1.3% (24) | <= 3% | PASS |
+| Noise leakage | 31.2% (455/1457 findings) | <= 2% | FAIL |
+
+### The single false-halal (OCR-limited)
+
+| Image | GT | App | Entry | Cause |
+|---|---|---|---|---|
+| `off2/off2_4902715927824_ingredients.jpg` | 加工でん粉 (syubhat) | halal | `rule:starch`, matched `でん粉` | Strip-recovery OCR + section boundary cut the `加工` prefix; the surviving `でん粉` correctly hits the plain-starch halal rule. The curated modified-starch entry and `rule:modified-starch` cannot fire on a prefix that is not in the text. Not a matcher/rule hole. |
+
+This is 1 policy false-halal (AC-1b), not a dangerous one (AC-1a = 0; no
+pork/alcohol labelled halal).
+
+## 12. Why the expanded number is lower, and why it is the honest one
+
+The original 21-image dev measured classification 82.6-82.8% (OCR variant
+80.1%). The same pipeline on the expanded 93-image dev measures 55.5%. That
+drop is the corpus, not a regression:
+
+- the new 72 images are real Open Food Facts user photos: curved bottles, glare,
+  small fonts, multi-column panels, imported products (English/Chinese labels),
+  strips whose detector scales glyphs to nothing. The original 21 were selected
+  for legibility.
+- the original 21 are a subset of the expanded 93, so the expanded number is the
+  strictly more conservative measurement of the same code.
+
+The 55% is the number that should be quoted. The gate tool thresholds (AC-4/6/8,
+and consequently AC-9/10) **still fail**: coverage and hazard recall on hard real
+photos remain the main open problem, not verdict correctness (97.0% among
+emitted).
+
+## 13. Harness limitation (unchanged)
+
+The offline harness runs PaddleOCR only. It cannot measure ML Kit, the adaptive
+third pass, camera optics, or the MB-based crop — the `validate-real` footer
+says so explicitly. Device runs against the same GT are still required for
+AC-14..AC-22 and for the final holdout gate. The holdout remains **sealed**; no
+pipeline run has touched it.

@@ -189,3 +189,56 @@ halal. Pinned in `scripts/smoke.ts` §50n.
 
 GT annotation fix: the 消泡剤 entry was split (消泡剤 vs the generic 消泡 form) so
 the ground truth matches the pipeline's token split.
+
+## Expanded-corpus round (session 8, 2026-10-03)
+
+Base tree `e4d9d62`; this round ends at commits `6b723e5` (OCR strip-tile
+recovery + faithful harness + alignment) and `6e9c990` (data/rules/folds), docs
+commit follows. P/T/M/FIX/V agent cluster.
+
+| Agent | Work | Key numbers |
+|---|---|---|
+| P1 | Harvest hazard-heavy OFF-JP panels (`off2/`) | **72 images** / 24.5 MB; instant noodles 10, frozen 10, seasonings 10, bottled 16, snacks 10, dairy 16; ~569 OFF-text hazard occurrences (not GT) |
+| P2a/P2b | Scan 54 `kind=unknown` images for reusable panels | **0 new usable panels** (fronts/marketing only) |
+| P3 | Pre-harvest label probe of the current tree | matched 373 / unmatched 159 / unknown 34 (was 365/171/50 at the G4 baseline) |
+| P4 | First harness on the new pool (21-image dev subset) | 20/93 GT images covered: classification 86.0%, hazard 81.8%, unknown 2.0%, unmatched 12.0%, FH 0 / FR 0 |
+| T1-T8 | Hand-transcribe the 72 off2 images (8 batches x 9) | **1455 items** transcribed (152/144/196/185/252/194/158/174); hazards 433 |
+| M1 | Mirror the app path in the harness (strip retry + faithful findings) | Merged 1656 GT items (201 + 1455): classification 54.2%, hazard 54.3%, unmatched 41.1%, unknown 4.7%, verdict 91.1%, **false-halal 36** pre-normalization (32 syubhat + 4 haram) |
+| FIX-A | Data: Japanese-language curated set + modified-starch variants | 955 curated entries; deleted bogus `exp:加工プン` / `exp:加工アンプン` / `exp:加工デンナン`; +31 EN entries (exp:en-*); 1 remaining status conflict (sodiumcaseinate) |
+| FIX-B | Rules: pork/margarine/cream-cheese/creaming-powder + `rule:modified-starch` before starch/thickener | after FIX-B: **false-halal 36 -> 5** (5 items in `fb-report.json`) |
+| FIX-C | OCR phrase folds + whitespace-strip order | after FIX-C: **false-halal 5 -> 1**; each new fold source zero-collision across ~14k DB names + 5531 corpus tokens (`v2-probe.log`) |
+| V1 | Independent verifier: rescore P4 + data/rule audit | 20/93: classification 86.0%, hazard 81.8%, FH/FR 0; audit 958 entries: 0 dup ids, 2 curated collisions, fuzzy violations 0, cheap-pair violations 0, **1 fuzzy-halal-from-haram-mutation** (wine probe -> grape) |
+| V2 | Full expanded run + gate + golden measure + probe | covered **92/93** GT images, 1868 occ.; gate FH **1** / FR 0; classification 55.3%, hazard 58.5% (298/509), unknown 5.4%, unmatched 39.3%, verdict 97.0%, E2E 53.6%, T2 1.3%, noise leakage 31.2%; smoke **1272 PASS**; eval 99.8 / 92.1 / 84.5, assertions 19/19 |
+
+GT normalization: 80 compound items split per protocol -> **1656 -> 1869 items**
+(25 parents kept, 268 sub-items added, 0 invalid). Distribution
+halal 1350 / syubhat 438 / haram 76 / unknown 5.
+
+Alignment rewrite (`validate-real`): exact > head/core > joined > prefix >
+substring > fuzzy; qualifier-only-inside-parens is invalid; status-preference
+pass repairs 44 risky GT items (disable with `--no-status-preference`).
+
+Strip recovery: first pass below max(20, 7% x width) chars on an extreme strip
+(width/height >= 3 or height < 240) -> 800px overlapping tiles (100px overlap),
+keep merged if longer. Measured: `off_4823077629518_ingredients.jpg`
+(2122x362) raw **8 -> 1115 chars** across 3 tiles; expanded dev kept 10 strip
+recoveries (largest 7 -> 342 chars).
+
+Metrics history this round: expanded-dev golden classification **55.5%** /
+verdict 97.0% / OCR variant 56.4%; gate 55.3%. The lower number vs the original
+21-image dev (82.6%) is the harder real-photo corpus (curved/glare/imported/
+strip), not a regression — see `docs/VALIDATION_GOLDENSET.md` "Expanded corpus".
+
+Known limits carried forward:
+
+1. Gate false-halal = 1, OCR-limited: `off2_4902715927824` 加工でん粉 lost its
+   `加工` prefix at the section boundary, so `でん粉` hits plain-starch halal.
+2. Offline harness fidelity: ML Kit, adaptive 3rd pass, camera and MB crop are
+   not measurable offline; AC-14..AC-22 remain device-run items.
+3. Expanded corpus is far below accuracy thresholds (classification 55.3%,
+   unmatched 39.3%); coverage on hard real photos is the open problem.
+4. Corpus source bias: OFF/OFF2 user photos + Commons; 1 GT image
+   (`commons/commons_8752933.jpg`) absent from the harness.
+5. Residual data issues: sodiumcaseinate status conflict (syubhat/halal), 2
+   curated name collisions, and the V1-audit fuzzy-halal-from-haram-mutation
+   case (probe only).
