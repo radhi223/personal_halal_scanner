@@ -60,6 +60,11 @@ const PHRASE_FOLD: [string, string][] = [
   ['カエでん粉', '加工でん粉'],
   ['加エでん粉', '加工でん粉'],
   ['バーム油', 'パーム油'],
+  // カ->力 (and オ->扱) garble: OCR read カツオ as カツ扱 / 力ツ扱 in
+  // fldb_4901313207604. Without the fold the token hit the meat-cut rule
+  // (/カツ/) and bonito — a FISH — was flagged as an unidentified meat cut.
+  ['力ツ扱', 'カツオ'],
+  ['カツ扱', 'カツオ'],
 ];
 
 /**
@@ -84,10 +89,10 @@ export function normalize(input: string): string {
  * Section header for the ingredient list. Includes OCR-mangled variants we have
  * actually observed on-device, e.g. 原材料名 read as 所材料名 / 原材料 / 材料名.
  */
-const SECTION_START = /(原材料名|原材料|原料名|原材名|材料名|材料|料名)/;
+const SECTION_START = /(原材料名|原材料|原料名|原材名|材料名|材料|料名|ingredients?\s*[:：])/i;
 /** Markers that begin a DIFFERENT section, so we stop collecting. */
 const SECTION_STOP =
-  /(栄養成分|栄養成分表示|製造者|製造所|販売者|加工者|輸入者|名称|品名|賞味期限|消費期限|保存方法|内容量|税込|税抜|アレルギー|特定原材|原産国|原産地|お問い合わせ|お客様相談|電話|〒|推定値|熱量|たんぱく質|たんばく質|脂質|炭水化物|食塩相当量|JAN|調理|切る|注意|ください|電子レンジ|レンジ|加熱|ハサミ|直射日光|高温多湿|発売元|製造元|受付|目安|表示値|ごみ|記載|存方法|造者|時簡|養成分|たんばく|外袋|内袋|個装|枠外|表目|前面|上部|記勤)/;
+  /(栄養成分|栄養成分表示|製造者|製造所|販売者|加工者|輸入者|名称|品名|賞味期限|消費期限|保存方法|内容量|税込|税抜|アレルギー|特定原材|原産国|原産地|お問い合わせ|お客様相談|電話|〒|推定値|熱量|たんぱく質|たんばく質|脂質|炭水化物|食塩相当量|JAN|調理|切る|注意|ください|電子レンジ|レンジ|加熱|ハサミ|直射日光|高温多湿|発売元|製造元|受付|目安|表示値|ごみ|記載|存方法|造者|時簡|養成分|たんばく|外袋|内袋|個装|枠外|表目|前面|上部|記勤|NUTRITION\s*FACTS|%\s*Daily|CONTAINS\b|SERVING\s*SIZE|CALORIES|MANUFACTUR|DISTRIBUTED|CERTIFIED|TRADEMARK|SOLD\s*BY\s*WEIGHT)/i;
 /** A line that is basically just a barcode / long digit run. */
 const DIGITS_LINE = /^[\d\s\-ー－]{8,}$/;
 
@@ -100,6 +105,29 @@ const LIST_SEPARATOR = /[、，,・/／]/;
  * type, not list continuation, even though it is not a forward stop marker.
  */
 const ABSORB_STOP = new RegExp(`(?:${SECTION_STOP.source}|種類別)`);
+
+/**
+ * English-label support. OFF labels (e.g. off_0041143029329) flatten a whole
+ * panel into one Latin run where the ingredient list sits beside a garbled
+ * nutrition block ("DerservngCalories", "NOTACALORIE", "Serving Size"). The
+ * Japanese section markers never match, so extractIngredientSection returns the
+ * whole blob. When the recovered section is Latin-dominant, cut it at the first
+ * garbled nutrition marker so only the (earlier) ingredient portion survives.
+ * A Japanese-dominant section is never touched.
+ */
+const GARBLED_NUTRITION_RE = /alor|utrition|ervin|aily|alorie/i;
+function isLatinDominant(text: string): boolean {
+  const compact = text.replace(/\s/g, '');
+  if (!compact) return false;
+  const ascii = compact.replace(/[^\x20-\x7e]/g, '').length;
+  return ascii / compact.length > 0.7;
+}
+/** Trim a Latin-dominant section at the first garbled nutrition marker. */
+function applyLatinNutritionFallback(section: string): string {
+  if (!isLatinDominant(section)) return section;
+  const cut = section.search(GARBLED_NUTRITION_RE);
+  return cut > 0 ? section.slice(0, cut).trim() : section;
+}
 
 /**
  * Recover the leading ingredient list when the 原材料名 marker is found AFTER
@@ -172,7 +200,7 @@ export function extractIngredientSection(text: string): string {
       break;
     }
   }
-  if (start === -1) return text;
+  if (start === -1) return applyLatinNutritionFallback(text);
 
   // Recover ingredients listed before the marker: whole preceding OCR lines,
   // then the run before the marker on the marker line itself (which holds the
@@ -199,7 +227,12 @@ export function extractIngredientSection(text: string): string {
 
   // Drop allergen notes like "(一部に卵・乳成分・小麦・大豆・…を含む)".
   collected = collected.replace(/[(（][^()（）]*(含む|含まれ)[^()（）]*[)（）]/g, ' ');
-  return collected.replace(/^[、,\s。]+/, '').trim();
+  collected = collected.replace(/^[、,\s。]+/, '').trim();
+
+  // English-label fallback: Latin-dominant section that still carries a garbled
+  // nutrition header -> keep only what precedes it. (Also applied on the
+  // no-marker return path above.)
+  return applyLatinNutritionFallback(collected);
 }
 
 /**
@@ -261,6 +294,12 @@ const NOISE_EXACT = new Set(
     '事項', '止事項', '様式', '樣式', 'ポイント', '留意点', '該当', '加工所',
     '薬ラベル', '加工食品', '保存', '由来', '開封後', '記載', '表示', '別紙',
     '参考', '例示', '抜粋', '出典', '目次',
+    // Measured boilerplate leaks on the label corpus (~18-38 tokens). Kept
+    // EXACT (and duplicated in NOISE_RE only where a substring cannot hit a real
+    // ingredient): bare 側面/表面 would swallow genuine words, so only the full
+    // 側面記 form is listed. 開封後 / 記載 / 表示 already appear above.
+    '召し上がり', '買い上げ', '購入日', '天面', '側面記', '平日', '午前',
+    '午後', 'サービス係', '健康補助食品', '問合せ', '問い合せ', '造りては',
   ]
 );
 
@@ -273,7 +312,7 @@ const NOISE_EXACT = new Set(
  *    レンジ inside フリーレンジ卵.
  */
 const NOISE_RE =
-  /(税込|税抜|kcal|カロリー|製造|工場|株式会社|を含む|含まれ|不使用|無添加|フリー$|不含|一部に|賞味|期限|保存方法|栄養成分|たんばく質|タンパク質|脂質|炭水化物|食塩相当量|推定値|お問い合わせ|電話|原産|内容量|名称|品名|アレルギー|特定原材|注意|ください|目安|受付|発売元|製造元|造者|調理|加熱|(?<!フリー)レンジ|ハサミ|直射日光|高温多湿|ごみ|区分|記載|標準|存方法|エネルギー|原材|賞味期限|ます|です|外装|個包装|固包装|包装|パッケージ|画像|常温|高温|輸入者|販売元|南洋元|置いて|できま|トレイ|ハサミ|場合|一部|万全|不都合|本品|造場|表示値|表示值|インドネシ|保存法|タイ製造|発壳元|相談室|窓口|外袋|内袋|個装|枠外|記載|記勤|時簡|養成分|たんばく|たんはく|表目|前面|上部|国内製造|外国製造|遺伝子組換え|分別生産|生豆生産国|その他|産$|国$|国産|成分表示|ばく質|はく質|におい|合わせ先|合わ先|输入者|れません|灰水化物|熟量|熱量|表示|相当量|品質|材名|要冷蔵|要冷凍|風味原料)/;
+  /(税込|税抜|kcal|カロリー|製造|工場|株式会社|を含む|含まれ|不使用|無添加|フリー$|不含|一部に|賞味|期限|保存方法|栄養成分|たんばく質|タンパク質|脂質|炭水化物|食塩相当量|推定値|お問い合わせ|電話|原産|内容量|名称|品名|アレルギー|特定原材|注意|ください|目安|受付|発売元|製造元|造者|調理|加熱|(?<!フリー)レンジ|ハサミ|直射日光|高温多湿|ごみ|区分|記載|標準|存方法|エネルギー|原材|賞味期限|ます|です|外装|個包装|固包装|包装|パッケージ|画像|常温|高温|輸入者|販売元|南洋元|置いて|できま|トレイ|ハサミ|場合|一部|万全|不都合|本品|造場|表示値|表示值|インドネシ|保存法|タイ製造|発壳元|相談室|窓口|外袋|内袋|個装|枠外|記載|記勤|時簡|養成分|たんばく|たんはく|表目|前面|上部|国内製造|外国製造|遺伝子組換え|分別生産|生豆生産国|その他|産$|国$|国産|成分表示|ばく質|はく質|におい|合わせ先|合わ先|输入者|れません|灰水化物|熟量|熱量|表示|相当量|品質|材名|要冷蔵|要冷凍|風味原料|召し上が|買い上げ|購入日|天面|側面記|平日|午前|午後|サービス係|健康補助食品|問合せ|問い合せ|造りては|開封後)/;
 
 /** Address / company / contact boilerplate (structural, not label-specific). */
 const ADDRESS_RE =
@@ -460,6 +499,22 @@ export function isLabelNoise(normalized: string): boolean {
 }
 
 /**
+ * Real single-character ingredients that OCR emits as their own token and that
+ * the generic length guard below would otherwise drop (GT 卵 on
+ * fldb_4902410315353). Kept EXACT and only when the token is standalone: no
+ * substring mining, so 水 / 肉 and every other single char stay dropped.
+ */
+export const SINGLE_CHAR_KEEP = new Set(['卵', '米', '酢', '塩', '油', '乳', '魚']);
+
+/**
+ * "着色料（ウコン）" / "色素(カラメル)": the normal paren split produces the
+ * generic 着色料 (syubhat) plus the bare name, so the named-colorant rule never
+ * sees the pair. Emit the inner name AND the joined form (着色料ウコン) as
+ * candidates too; the plain split is kept unchanged.
+ */
+const COMBINED_COLORANT_RE = /(?:着色料|色素)[（(]([^（）()]{2,30})[）)]/g;
+
+/**
  * Split a raw OCR blob into candidate ingredient tokens.
  *
  * Ingredients on Japanese labels are separated by Japanese commas/中黒,
@@ -492,13 +547,24 @@ export function extractCandidates(text: string): string[] {
   const push = (value: string) => {
     // Strip "attached/separate" packaging prefixes so 添付醤油 -> 醤油.
     const t = value.trim().replace(/^(添付|別添|付属|添付調味)/, '');
-    if (t.length < 2) return; // single chars are too noisy to match
+    // Single chars are too noisy to match, except the real standalone
+    // ingredients whitelisted above.
+    if (t.length < 2 && !SINGLE_CHAR_KEEP.has(t)) return;
     const key = normalize(t);
     if (!key || seen.has(key)) return;
     if (isLabelNoise(key)) return; // drop label metadata (tax/dates/nutrition/maker)
     seen.add(key);
     out.push(t);
   };
+
+  // Named colorant in parentheses: add the inner name and the joined form
+  // BEFORE the normal split so the named-colorant rule can fire on the pair.
+  for (const m of text.matchAll(COMBINED_COLORANT_RE)) {
+    const inner = m[1].trim();
+    if (!inner) continue;
+    push(inner);
+    push(m[0].replace(/[（(][\s\S]*$/, '') + inner);
+  }
 
   for (const segment of segments) {
     push(segment);

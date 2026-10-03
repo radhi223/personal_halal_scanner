@@ -244,6 +244,10 @@ export const CURATION_RULES: CurationRule[] = [
     sources: [LPPOM, JAKIM],
   },
   halalRule('hydrolyzed-yeast', 'Hydrolyzed yeast / 加水分解酵母', [/加水分解酵母/, /酵母加水分解物/], 'additive', 'Ragi terhidrolisis, halal.'),
+  // MUST precede the generic hydrolyzed-protein (syubhat) rule below: a token
+  // that explicitly says 植物性 (plant) before 加水分解 is a plant protein and is
+  // halal; otherwise the generic /加水分解/ rule shadows it with syubhat.
+  halalRule('plant-hydrolyzed-protein', 'Plant hydrolyzed protein / 植物性蛋白加水分解物', [/植物性.{0,8}加水分解/], 'plant', 'Protein nabati terhidrolisis (mis. dari kedelai/gandum) — nabati, halal.'),
   {
     id: 'hydrolyzed-protein',
     label: 'Hydrolyzed protein / たん白加水分解物',
@@ -430,6 +434,22 @@ export const CURATION_RULES: CurationRule[] = [
       /カロチノイド色素/,
       /カロチン色素/,
       /カロテン色素/,
+      /ウコン/,
+      // OCR-tolerant turmeric (ウコン misread with a stray glyph in the middle).
+      /ウコ.?ン/,
+      /パプリカ/,
+      /クランベリー/,
+      /ニンジン/,
+      /カロテノイド/,
+      /アナトー/,
+      /ビート/,
+      /紅麹/,
+      /紅花/,
+      // 野菜 only in colourant context: a bare /野菜/ would grant halal to
+      // 野菜エキス (currently syubhat via generic-extract), a status change this
+      // rule was not audited for. 着色料（野菜） still resolves via these forms.
+      /着色料野菜/,
+      /色素野菜/,
     ],
     'colorant',
     'Pewarna dengan nama sumber nabati/fermentasi (karamel, paprika, sayur, gardenia, annatto, bit, koji merah, karotenoid) — halal.'
@@ -520,7 +540,10 @@ export const CURATION_RULES: CurationRule[] = [
       /レバー/, /レバ刺し/, /スペアリブ/, /バラ肉/, /もも肉/, /肩ロース/,
       // Verifier round 7: katakana cut forms and dish names produced no finding.
       /モモ肉/, /スネ肉/, /ムネ肉/, /モツ/, /モツ鍋/, /焼肉/, /肉まん/, /肉団子/, /餃子/, /焼売/,
-      /ジビエ/, /カツ(?!オ)/,
+      // カツオ (bonito, FISH) must never be a cut. /扱/ is belt-and-braces: the
+      // OCR garble カツ扱 is folded to カツオ in normalize.ts, but if that fold
+      // ever misses, the raw カツ扱 form must still not resolve as a meat cut.
+      /ジビエ/, /カツ(?!オ|扱)/,
       // ロース needs a meat/cut context AND must not match ローステッド (roasted):
       // a bare pattern also catches the -ose sugars トレハロース and スクロース
       // (verifier rounds 5-6). リブ covers リブロース (round 7).
@@ -589,6 +612,10 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('starch', 'Starch / でん粉', [/でん粉/, /でんぷん/, /澱粉/, /デンプン/], 'plant', 'Pati nabati, halal.'),
   halalRule('mayonnaise', 'Mayonnaise / マヨネーズ', [/マヨネーズ/], 'condiment', 'Mayones umumnya dari telur+cuka, halal (waspadai aditif).', 'medium'),
   halalRule('bread', 'Bread / パン', [/パン/], 'grain', 'Roti umumnya halal, tetapi bisa mengandung shortening/margarin hewani — cek bila ada.', 'low'),
+  // MUST precede the 風味調味料 (fermented-seasoning) rule below: 明太子風味調味料
+  // is cod-roe (seafood, halal), not a generic fermented/flavoured seasoning
+  // syubhat. Bare 明太子 also has a curated entry, which still wins.
+  halalRule('mentaiko', 'Mentaiko / 明太子', [/明太子/], 'animal', '明太子 (telur ikan kod/mentaiko) — hasil laut, halal menurut mayoritas ulama.'),
   // MUST precede the generic 'seasoning' (halal-low) rule below: fermented /
   // brewed seasonings carry alcohol from fermentation, and flavour/liquid
   // seasonings commonly carry alcohol or animal extracts. Plain 調味料 /
@@ -644,6 +671,7 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('liquid-sugar', 'Liquid sugar / 液糖', [/液糖/, /果糖/, /ぶどう糖液糖/, /糖漿/, /糖浆/, /果葡糖/], 'sweetener', 'Gula cair / glukosa-fruktosa (HFCS), halal.'),
   halalRule('sugar-variant', 'Sugar / 砂糖', [/沙糖/], 'sweetener', 'Gula (nabati), halal. Varian OCR 沙糖.'),
   halalRule('miso', 'Miso / 味噌', [/味噌/, /みそ/], 'fermented', 'Miso fermentasi kedelai; umumnya halal, waspadai residu alkohol.', 'low'),
+  halalRule('natto', 'Natto / 納豆', [/納豆/], 'fermented', 'Natto (kedelai fermentasi Bacillus subtilis) — nabati, halal.'),
   // Must precede the /バター/ (butter) rule: バター入りマーガリン / マーガリン
   // contains バター as a substring but is margarine (mixed/possibly animal fat),
   // so butter-first would wrongly label it halal.
@@ -653,7 +681,10 @@ export const CURATION_RULES: CurationRule[] = [
     status: 'syubhat',
     confidence: 'medium',
     category: 'fat',
-    patterns: [/マーガリン/],
+    // /マ一ガリン/ is the observed OCR misread of the long vowel (ー -> 一,
+    // fldb_4902410315353); without it the token fell through to the catalog as
+    // unknown(margarine) instead of inheriting the syubhat verdict.
+    patterns: [/マーガリン/, /マ一ガリン/],
     reasoning: 'Margarin bisa berbasis lemak hewani (termasuk babi) atau nabati. Perlu verifikasi.',
     sources: [LPPOM, JAKIM],
   },
@@ -664,7 +695,14 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('carrageenan', 'Carrageenan / カラギーナン', [/カラギーナン/], 'additive', 'Karagenan rumput laut, halal.'),
   halalRule('ph-adjuster', 'pH adjuster', [/ph調/], 'additive', 'Pengatur pH, umumnya halal.'),
   halalRule('antioxidant', 'Antioxidant / 酸化防止剤', [/酸化防止剤/, /酸化防/, /抗氧化/], 'additive', 'Antioksidan, umumnya halal.'),
-  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /ピタ三ン/, /ピタミン/, /ミンe/, /vc/, /ve/, /维生素c/, /维生素/], 'additive', 'Vitamin, halal.'),
+  // タ -> 三 garble (observed "多類ビ三C"); rules run on lowercased text, so the
+  // variant patterns use a lowercase c.
+  // The Latin abbreviations VC/VE are anchored to the WHOLE normalized token:
+  // bare /vc/ and /ve/ matched ANY token containing them (VEAL -> halal:vitamin,
+  // VERMOUTH -> halal) — a false-halal on meat and alcohol. normalize() strips
+  // dots/spaces, so V.C / V C already arrive as "vc". ^v[ce](\d{1,2})?$ covers
+  // VC, VE, VC12, VE6-ish forms only.
+  halalRule('vitamin', 'Vitamin', [/ビタミン/, /ビタ三ン/, /ピタ三ン/, /ピタミン/, /ミンe/, /^v[ce](\d{1,2})?$/, /ビ三c/, /ビタ三ンc/, /ビ三ンc/, /维生素c/, /维生素/], 'additive', 'Vitamin, halal.'),
   halalRule('shallot', 'Shallot / シャロット', [/シャロット/, /エシャロット/, /シヤロット/], 'plant', 'Bawang merah (nabati), halal.'),
   halalRule('star-anise', 'Star anise / スターアニス', [/スターアニス/, /スターニス/, /スター二ス/, /八角/], 'plant', 'Adas bintang (nabati), halal.'),
   halalRule('chili-powder', 'Chili powder / チリパウダー', [/チリパウダ/, /チリパウ/, /チリペッパー/], 'plant', 'Bubuk cabai (nabati), halal.'),
@@ -733,6 +771,11 @@ export const CURATION_RULES: CurationRule[] = [
       'Zat pemutih (漂白剤) bisa berupa peroksida/sulfit (mineral) atau turunan lemak/enzim hewani tergantung produk. Perlu verifikasi.',
     sources: ['EFSA — E928/E925', LPPOM],
   },
+  // MUST precede the generic /ソース/ (syubhat) rule: ピザソース contains ソース
+  // as a substring, and the tomato/cheese base is halal. /ピザ一ス/ is the
+  // observed OCR long-vowel misread (ソー -> 一). Risk ingredients are still
+  // flagged by their own rules (e.g. ハム, ベーコン).
+  halalRule('pizza-sauce', 'Pizza sauce / ピザソース', [/ピザソース/, /ピザ一ス/], 'condiment', 'Saus pizza umumnya basis tomat/keju; bahan berisiko ditandai terpisah.'),
   {
     id: 'sauce',
     label: 'Sauce / ソース',
@@ -858,7 +901,10 @@ export const CURATION_RULES: CurationRule[] = [
   halalRule('veg-color', 'Vegetable colour / 野菜色素', [/野菜色素/], 'colorant', 'Pewarna nabati, halal.'),
   halalRule('nitrite', 'Sodium nitrite / 亜硝酸Na', [/亜硝酸na/, /亜硝酸ナトリウム/], 'additive', 'Natrium nitrit (mineral), halal.'),
   halalRule('propionate', 'Calcium propionate / プロピオン酸Ca', [/プロピオン酸/, /丙酸钙/], 'additive', 'Propionat (pengawet mineral), halal.'),
-  halalRule('smoke', 'Smoke flavour / くん液', [/くん液/, /燻液/], 'additive', 'Cairan asap, halal.'),
+  // OCR read く as "<" (observed). normalize() strips "<", so the normalized
+  // form is just ん液 — /ん液/ is what actually catches the garble; the literal
+  // /<ん液/ is kept for raw-pattern documentation.
+  halalRule('smoke', 'Smoke flavour / くん液', [/くん液/, /燻液/, /<ん液/, /ん液/], 'additive', 'Cairan asap, halal.'),
   halalRule('phenylalanine', 'Phenylalanine', [/フェニルアラニン/], 'additive', 'Fenilalanin (asam amino), halal.'),
   halalRule('expanding2', 'Raising agent / 膨脹剤', [/膨脹剤/], 'additive', 'Pengembang, halal.'),
   halalRule('salt-cn', 'Salt / 食用塩', [/食用塩/, /食用盐/], 'mineral', 'Garam, halal.'),
@@ -1085,7 +1131,11 @@ export const CURATION_RULES: CurationRule[] = [
   // /鰹/ + /かつお/ cover extracts/dashes not caught by the exact curated
   // 'bonito' entry (e.g. 鰹エキス) and keep them halal instead of falling to the
   // generic エキス syubhat rule.
-  halalRule('katsuobushi', 'Katsuobushi / 鰹節', [/鰹節/, /かつお節/, /鰹/, /かつお/], 'animal', 'Ikan cakalang kering, halal (hasil laut).'),
+  // /カツオ/ (katakana) MUST be covered too: the カツ扱/力ツ扱 OCR folds in
+  // normalize.ts produce カツオ…, and without this the folded カツオエキス fell
+  // to the generic エキス (syubhat) and カツオ節粉末 stayed unmatched. Bonito is a
+  // fish — halal. The meat-cut rule explicitly excludes カツオ.
+  halalRule('katsuobushi', 'Katsuobushi / 鰹節', [/鰹節/, /かつお節/, /鰹/, /かつお/, /カツオ/], 'animal', 'Ikan cakalang kering, halal (hasil laut).'),
   halalRule('leucine', 'Leucine / ロイシン', [/ロイシン/], 'additive', 'Leusin (asam amino), halal.'),
   halalRule('valine', 'Valine / バリン', [/バリン/], 'additive', 'Valin (asam amino), halal.'),
   halalRule('drinking-water', 'Drinking water / 飲用水', [/饮用水/, /飲用水/], 'mineral', 'Air minum, halal.'),

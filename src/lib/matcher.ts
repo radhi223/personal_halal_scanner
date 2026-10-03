@@ -1,7 +1,7 @@
 import type { HalalStatus, IngredientEntry, MatchResult, ScanFinding } from '@/types';
 import { substitutionCost } from './confusion';
 import { levenshtein, weightedSimilarity } from './levenshtein';
-import { extractCandidates, normalize } from './normalize';
+import { extractCandidates, normalize, SINGLE_CHAR_KEEP } from './normalize';
 import { matchRule, ruleToMatch } from './rules';
 
 /**
@@ -88,7 +88,20 @@ export function buildIndex(entries: IngredientEntry[]): IngredientIndex {
 
 /** Canonical best match for a normalized term, or null. */
 export function matchNormalized(index: IngredientIndex, normalized: string): MatchResult | null {
-  if (normalized.length < 2) return null;
+  if (normalized.length < 2) {
+    // Single-character ingredients survive extraction only for the whitelist in
+    // normalize.ts (卵, 米, 酢, 塩, 油, 乳, 魚). A length-1 token may now resolve
+    // through an EXACT reviewed (curated) entry ONLY — never fuzzy, never a rule
+    // or catalog fallback. This makes 酢 -> vinegar and 塩 -> salt reachable;
+    // whitelisted chars with no bare curated entry (油, 乳) still return null.
+    if (normalized.length === 1 && SINGLE_CHAR_KEEP.has(normalized)) {
+      const single = index.exact.get(normalized);
+      if (single && single.reviewed) {
+        return { entry: single, matchedTerm: normalized, score: 1, kind: 'exact' };
+      }
+    }
+    return null;
+  }
 
   const exact = index.exact.get(normalized);
   if (exact) {
