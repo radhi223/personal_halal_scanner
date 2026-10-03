@@ -214,6 +214,78 @@ function absorbLeadingPrefix(pieces: string[]): string {
 }
 
 /**
+ * Modifier prefixes whose DROPPING downgrades the verdict (FIX-A, 2026-10-04).
+ * Evidence: off2_4902715927824 lists 加工でん粉 (modified starch, syubhat) but
+ * the flattened two-column OCR put the modifier on a later line that the
+ * 賞味期限 stop cut away, so the extracted section started at でん粉 and the
+ * generic /でん粉/ halal rule (rule:starch) produced a FALSE-HALAL. The raw
+ * text still contains the modifier+base compound, so the section's boundary
+ * token can be repaired by grafting the modifier back on.
+ *
+ * Same class: 酸化デンプン (syubhat) vs デンプン (halal); 加水分解/酵素分解
+ * たん白 (syubhat) vs たん白; 発酵/醸造調味料 (syubhat) vs 調味料 (halal);
+ * 加工酢 (syubhat) vs 酢 (vinegar, halal). The class audit
+ * (scripts/a-tmp-audit.ts run, 2026-10-04) checked 963 modifier x base pairs
+ * through analyzeLayered: every curated compound is STRICTER than its stripped
+ * base — there is no curated pair where grafting the modifier would laxify a
+ * verdict. Only these known modifier tokens are allowed to repair.
+ */
+const MODIFIER_PREFIXES = [
+  '加工', '化工', '酸化', '脱脂', '濃縮', '粉末', '乾燥', '還元',
+  '酵素分解', '加水分解', '調製', '調整', '無糖', '加糖', '減塩',
+  '凍結', '冷凍', '殺菌', '焼成', '焙煎', '発酵', '醸造', '精製',
+  '漂白', '水添', '硬化', '濃厚', '希釈', '糖化', 'アルカリ処理',
+];
+
+/**
+ * True when the RAW OCR still carries `modifier + base` as one word. Whitespace
+ * injected by the OCR line flattening is tolerated on the SAME line (「加工
+ * でん粉」), because normalize() bridges it; a newline is not, because joining
+ * across OCR lines could merge two unrelated column fragments into a compound
+ * that was never printed.
+ */
+function rawTextHasCompound(rawText: string, modifier: string, base: string): boolean {
+  if (!base) return false;
+  const compound = modifier + base;
+  for (const line of rawText.split(/\r?\n/)) {
+    if (line.replace(WHITESPACE, '').includes(compound)) return true;
+  }
+  return false;
+}
+
+/**
+ * Boundary-chop repair: the extracted section's FIRST token is the token that
+ * sat next to the boundary, so it is the one a marker/stop cut can silently
+ * truncate. If the raw OCR contains a known modifier immediately before it
+ * (anywhere in the blob — the modifier can live on a later flattened column
+ * line beyond the stop marker), graft the modifier back onto that first token.
+ *
+ * Guards: first token only; token length >= 2; no rewriting when the token
+ * already starts with a known modifier; the compound must be present as a
+ * contiguous word in the raw text. A missed chop keeps the old (laxer) verdict;
+ * a false graft only ever reports the stricter compound verdict, never a laxer
+ * one (verified against the curated table).
+ */
+function repairBoundaryChoppedModifier(section: string, rawText: string): string {
+  if (!section || !rawText) return section;
+  const firstMatch = section.match(/^[^、，,・/／\s()（）]+/);
+  const first = firstMatch?.[0];
+  if (!first || first.length < 2) return section;
+  const firstNorm = normalize(first);
+  if (!firstNorm) return section;
+  for (const modifier of MODIFIER_PREFIXES) {
+    if (firstNorm.startsWith(normalize(modifier))) return section; // already whole
+    if (
+      rawTextHasCompound(rawText, modifier, first) ||
+      rawTextHasCompound(rawText, modifier, firstNorm)
+    ) {
+      return section.replace(first, modifier + first);
+    }
+  }
+  return section;
+}
+
+/**
  * Isolate the 原材料名 (ingredient list) section from a full-label OCR blob.
  *
  * Photos usually capture the whole pack (product name, price, dates, nutrition,
@@ -237,7 +309,9 @@ export function extractIngredientSection(text: string): string {
       break;
     }
   }
-  if (start === -1) return applyLatinNutritionFallback(text);
+  if (start === -1) {
+    return repairBoundaryChoppedModifier(applyLatinNutritionFallback(text), text);
+  }
 
   // Recover ingredients listed before the marker: whole preceding OCR lines,
   // then the run before the marker on the marker line itself (which holds the
@@ -268,8 +342,9 @@ export function extractIngredientSection(text: string): string {
 
   // English-label fallback: Latin-dominant section that still carries a garbled
   // nutrition header -> keep only what precedes it. (Also applied on the
-  // no-marker return path above.)
-  return applyLatinNutritionFallback(collected);
+  // no-marker return path above.) Then repair a boundary-chopped modifier
+  // prefix on the section's first token (see repairBoundaryChoppedModifier).
+  return repairBoundaryChoppedModifier(applyLatinNutritionFallback(collected), text);
 }
 
 /**

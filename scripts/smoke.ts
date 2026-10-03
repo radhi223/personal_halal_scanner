@@ -2484,5 +2484,105 @@ check(
   false
 );
 
+// 54. FIX-A (2026-10-04): boundary-chopped modifier prefixes. The remaining
+// false-halal on the dev golden set was off2_4902715927824: the label lists
+// 加工でん粉 (modified starch, syubhat) but the flattened two-column OCR put the
+// 加工 modifier on a later line that the 賞味期限 stop cut away, so the extracted
+// section started at でん粉 and rule:starch (halal) won. The fix is a CLASS fix
+// in normalize.ts: when the section's first token is a known base and the RAW
+// OCR still contains a known modifier+base compound, the modifier is grafted
+// back onto the boundary token. Bare starch, the compounds themselves and
+// unrelated first tokens are non-regressions below.
+const OFF2_4902715927824_RAW =
+  'フラワートルラ チョップドハム 原材料名 でん粉、トレハ /酸等）、リン 発色剤（亜硝酸 内容量1本入 制造来\n' +
+  '北云一小麦粉物油 八、物油乳 ハロース、 ーキングパウタ ン酸塩(Na)、pH調整剤、酸 肖酸Na)、 仓 發 撃 賞味期限 同面\n' +
+  '油脂、シ トニング、砂糖 、プロセスチーズ、酵母工キ ウダ一、乳化剂、增粘剤(加上 酸化防止剤(V.C)、香料、着 辛料抽出物、（一部に卵乳） 面の左部に記載\n' +
+  '少糖、小麦全粒粉、食塩）（国 エキス調味料、食塩、たん 加工でん粉、增粘多糖類、声 、着色料（カ口 ド、力儿 乳成分・小麦·大豆肉\n' +
+  '（国内製造）、ナチラルチー 白加水分解物、水め 、アルギン酸Na)、調味料（ カルン酸、シスイン 自を含む）\n' +
+  'チーズ、 /加工 料（ア三 V.B1、';
+const off2Section = extractIngredientSection(OFF2_4902715927824_RAW);
+check('[fixa-boundary] off2 section starts at 加工でん粉', off2Section.startsWith('加工でん粉'), true);
+const off2Find = analyzeLayered(getCuratedIndex(), getCatalogIndex(), off2Section);
+const off2First = off2Find.find((f) => f.raw === '加工でん粉');
+check('[fixa-boundary] off2 加工でん粉 -> syubhat', off2First?.match?.entry.status, 'syubhat');
+check('[fixa-boundary] off2 加工でん粉 curated id', off2First?.match?.entry.id, 'modified-starch');
+check(
+  '[fixa-boundary] off2 has no bare でん粉 halal finding',
+  off2Find.some((f) => f.normalized === normalize('でん粉')),
+  false
+);
+
+// Synthetic boundary variants: modifier+base lands after the 賞味期限 stop line
+// (the exact chop shape), with OCR-injected whitespace, and with 酸化.
+const chopped = extractIngredientSection(
+  '原材料名 でん粉、トレハロース\n北云 賞味期限 2026.3\nたん 加工でん粉、増粘多糖類'
+);
+check('[fixa-boundary] chopped modifier grafted', chopped.startsWith('加工でん粉'), true);
+check(
+  '[fixa-boundary] chopped modifier -> syubhat',
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), chopped).find((f) => f.raw === '加工でん粉')?.match?.entry
+    ?.status,
+  'syubhat'
+);
+
+const choppedSpace = extractIngredientSection(
+  '原材料名 でん粉、増粘多糖類\nfoo 賞味期限 2026.3\n加工 でん粉、増粘多糖類'
+);
+check('[fixa-boundary] whitespace-split compound grafted', choppedSpace.startsWith('加工でん粉'), true);
+
+const choppedOxidized = extractIngredientSection(
+  '原材料名 デンプン、食塩\nfoo 賞味期限 2026.3\nbar 酸化デンプン、増粘多糖類'
+);
+check('[fixa-boundary] 酸化デンプン grafted', choppedOxidized.startsWith('酸化デンプン'), true);
+const oxFind = analyzeLayered(getCuratedIndex(), getCatalogIndex(), choppedOxidized);
+check(
+  '[fixa-boundary] 酸化デンプン -> syubhat',
+  oxFind.find((f) => f.raw === '酸化デンプン')?.match?.entry.status,
+  'syubhat'
+);
+
+// No compound in the raw text -> nothing is grafted; bare starch stays halal.
+const noCompound = extractIngredientSection(
+  '原材料名 でん粉、トレハロース\n北云 賞味期限 2026.3\n増粘多糖類、食塩'
+);
+check('[fixa-boundary] no compound -> token untouched', noCompound.startsWith('でん粉'), true);
+check(
+  '[fixa-boundary] no compound -> でん粉 stays halal',
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), noCompound).find((f) => f.raw === 'でん粉')?.match?.entry
+    ?.status,
+  'halal'
+);
+
+// A first token that is NOT the compound's base is never rewritten, even when
+// the raw text carries a modifier+base elsewhere.
+const unrelatedFirst = extractIngredientSection(
+  '原材料名 食塩、砂糖\nfoo 賞味期限 2026.3\nbar 加工でん粉、増粘多糖類'
+);
+check('[fixa-boundary] unrelated first token untouched', unrelatedFirst.startsWith('食塩'), true);
+check(
+  '[fixa-boundary] no 加工食塩 invented',
+  analyzeLayered(getCuratedIndex(), getCatalogIndex(), unrelatedFirst).some(
+    (f) => f.normalized === normalize('加工食塩')
+  ),
+  false
+);
+
+// Already-whole compound is not double-prefixed; modifier before the marker is
+// still recovered by absorbLeadingPrefix (covered), and the no-marker path uses
+// the same repair.
+check(
+  '[fixa-boundary] already-whole compound not doubled',
+  extractIngredientSection('原材料名 加工でん粉、増粘多糖類').startsWith('加工でん粉'),
+  true
+);
+const noMarker = extractIngredientSection('でん粉、トレハロース\nfoo\n加工でん粉');
+check('[fixa-boundary] no-marker path repairs first token', noMarker.startsWith('加工でん粉'), true);
+
+// Non-regressions for the bare/compound verdicts themselves.
+check('[fixa-boundary] でん粉 -> halal', verdict30('でん粉').status, 'halal');
+check('[fixa-boundary] 加工でん粉 -> syubhat', verdict30('加工でん粉').status, 'syubhat');
+check('[fixa-boundary] 酸化デンプン -> syubhat', verdict30('酸化デンプン').status, 'syubhat');
+check('[fixa-boundary] でん粉 rule id', verdict30('でん粉').id, 'rule:starch');
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

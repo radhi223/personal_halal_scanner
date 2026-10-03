@@ -646,6 +646,8 @@ function padL(s: string, n: number): string {
 interface ItemRow {
   file: string;
   category: string;
+  /** AC-5 grouping key: GT record `category` field (protocol §2.1 code), falling back to the heuristic guess. */
+  gtCategory: string;
   gt: string;
   expected: string;
   hazard: boolean;
@@ -738,6 +740,8 @@ async function main(): Promise<void> {
 
   gtRecs.forEach((rec, ri) => {
     const ing = rec.ingredients ?? [];
+    const rawGtCat = typeof rec.category === 'string' ? rec.category.trim().toUpperCase() : '';
+    const gtCategory = rawGtCat || guessCategory(rec);
     let img: RunImage | null = null;
     if (args.mode === 'harness') {
       img = harnessMap.get(normKey(rec.file)) ?? null;
@@ -774,6 +778,7 @@ async function main(): Promise<void> {
       rows.push({
         file: rec.file,
         category: guessCategory(rec),
+        gtCategory,
         gt: g.raw,
         expected: g.expected,
         hazard: g.hazard === true || g.hazard === 1,
@@ -850,6 +855,83 @@ async function main(): Promise<void> {
   const noiseLeakage = verdictFindings ? Math.max(0, verdictFindings - alignedVerdictFindings) / verdictFindings : 0;
 
   const pct = (a: number, b: number): number => (b === 0 ? 0 : a / b);
+
+  /* --------------------------- AC-5 per-category ----------------------- */
+  // Grouped by the GT record's `category` field (protocol §2.1 codes). Legacy
+  // GT without the field falls back to the heuristic guess so the section
+  // still renders. Convention: AC-5 counts ALL GT occurrences of a category,
+  // including items whose image was not covered by the run (harness) or not
+  // correlated to a scan (device); those score as unmatched for that category.
+  const PROTOCOL_CATEGORIES = ['SN', 'FZ', 'SE', 'DR', 'ND', 'DY', 'BR', 'PM'];
+  const catOrder = (c: string): number => {
+    const i = PROTOCOL_CATEGORIES.indexOf(c);
+    return i >= 0 ? i : PROTOCOL_CATEGORIES.length + (c === '??' ? 1 : 0);
+  };
+
+  interface CategoryMetrics {
+    category: string;
+    images: number;
+    imagesCovered: number;
+    n: number;
+    classified: number;
+    classificationRecall: number | null;
+    hazardN: number;
+    hazardClassified: number;
+    hazardRecall: number | null;
+    unknown: number;
+    unknownRate: number | null;
+    unmatched: number;
+    unmatchedRate: number | null;
+    correct: number;
+    e2eCorrectRecall: number | null;
+    falseHalal: number;
+    falseHaram: number;
+    ac5Must: boolean | null;
+    ac5Nice: boolean | null;
+  }
+
+  const byGtCat = new Map<string, ItemRow[]>();
+  for (const r of rows) {
+    if (!byGtCat.has(r.gtCategory)) byGtCat.set(r.gtCategory, []);
+    byGtCat.get(r.gtCategory)!.push(r);
+  }
+  const perCategory: CategoryMetrics[] = [...byGtCat.entries()]
+    .sort((a, b) => catOrder(a[0]) - catOrder(b[0]) || a[0].localeCompare(b[0]))
+    .map(([category, rs]) => {
+      const n = rs.length;
+      const classified = rs.filter((r) => VERDICTS.has(r.effStatus)).length;
+      const hazardItems = rs.filter((r) => r.hazard);
+      const hazardClassified = hazardItems.filter((r) => VERDICTS.has(r.effStatus)).length;
+      const unknown = rs.filter((r) => r.effStatus === 'unknown').length;
+      const unmatched = rs.filter((r) => r.status === 'unmatched').length;
+      const correct = rs.filter((r) => r.correct).length;
+      const classificationRecall = n ? classified / n : null;
+      return {
+        category,
+        images: new Set(rs.map((r) => normKey(r.file))).size,
+        imagesCovered: new Set(rs.filter((r) => r.failure !== 'image-missing').map((r) => normKey(r.file))).size,
+        n,
+        classified,
+        classificationRecall,
+        hazardN: hazardItems.length,
+        hazardClassified,
+        hazardRecall: hazardItems.length ? hazardClassified / hazardItems.length : null,
+        unknown,
+        unknownRate: n ? unknown / n : null,
+        unmatched,
+        unmatchedRate: n ? unmatched / n : null,
+        correct,
+        e2eCorrectRecall: n ? correct / n : null,
+        falseHalal: rs.filter((r) => (r.expected === 'haram' || r.expected === 'syubhat') && r.effStatus === 'halal').length,
+        falseHaram: rs.filter((r) => r.expected === 'halal' && r.effStatus === 'haram').length,
+        ac5Must: classificationRecall == null ? null : classificationRecall >= 0.85,
+        ac5Nice: classificationRecall == null ? null : classificationRecall >= 0.9,
+      };
+    });
+  const ac5BelowMust = perCategory.filter((c) => c.ac5Must === false).map((c) => c.category);
+  const ac5BelowNice = perCategory.filter((c) => c.ac5Nice === false).map((c) => c.category);
+  const ac5Convention =
+    'AC-5 counts ALL GT occurrences per category; an uncovered (harness) or uncorrelated (device) image scores its occurrences as unmatched.';
 
   /* ----------------------------- thresholds ---------------------------- */
 
@@ -1011,6 +1093,29 @@ async function main(): Promise<void> {
   }
   console.log('');
 
+  /* ---------------------- AC-5 per-category (GT category) -------------- */
+
+  console.log('--- AC-5 per-category (GT record category, protocol §2.1) ---');
+  console.log(`  ${ac5Convention}`);
+  if (ac5BelowMust.length) {
+    console.log(`  AC-5 MUST (<85% classification recall): FAIL for ${ac5BelowMust.join(', ')}`);
+  } else {
+    console.log('  AC-5 MUST (>=85% classification recall): PASS for every category');
+  }
+  if (ac5BelowNice.length) console.log(`  AC-5 NICE (>=90%): below for ${ac5BelowNice.join(', ')}`);
+  const cw = [4, 5, 5, 5, 8, 14, 9, 9, 8, 4, 4, 6];
+  console.log(
+    `  ${pad('cat', cw[0])}${padL('imgs', cw[1])}${padL('cov', cw[2])}${padL('n', cw[3])}${padL('class%', cw[4])}${padL('haz%', cw[5])}${padL('unk%', cw[6])}${padL('unm%', cw[7])}${padL('e2e%', cw[8])}${padL('FH', cw[9])}${padL('FR', cw[10])}${padL('AC5', cw[11])}`
+  );
+  console.log(`  ${'-'.repeat(cw.reduce((a, b) => a + b, 0))}`);
+  for (const c of perCategory) {
+    const haz = c.hazardRecall == null ? 'n/a' : `${fmtPct(c.hazardRecall)} ${c.hazardClassified}/${c.hazardN}`;
+    console.log(
+      `  ${pad(c.category, cw[0])}${padL(String(c.images), cw[1])}${padL(String(c.imagesCovered), cw[2])}${padL(String(c.n), cw[3])}${padL(fmtPct(c.classificationRecall ?? 0), cw[4])}${padL(haz, cw[5])}${padL(fmtPct(c.unknownRate ?? 0), cw[6])}${padL(fmtPct(c.unmatchedRate ?? 0), cw[7])}${padL(fmtPct(c.e2eCorrectRecall ?? 0), cw[8])}${padL(String(c.falseHalal), cw[9])}${padL(String(c.falseHaram), cw[10])}${padL(c.ac5Must == null ? '-' : c.ac5Must ? 'PASS' : 'FAIL', cw[11])}`
+    );
+  }
+  console.log('');
+
   /* ------------------------------ top misses --------------------------- */
 
   const misses = items
@@ -1076,6 +1181,15 @@ async function main(): Promise<void> {
         ocrExact: ocrCovered.length ? pct(ocrExact, ocrCovered.length) : null,
         ocrVariant: ocrCovered.length ? pct(ocrVariant, ocrCovered.length) : null,
       },
+      ac5: {
+        convention: ac5Convention,
+        thresholdMust: 0.85,
+        thresholdNice: 0.9,
+        categoriesBelowMust: ac5BelowMust,
+        categoriesBelowNice: ac5BelowNice,
+        allCategoriesPassMust: ac5BelowMust.length === 0,
+      },
+      perCategory,
       thresholds: th,
       mustPass,
       falseHalal: falseHalal.map(shaped),
@@ -1102,6 +1216,7 @@ async function main(): Promise<void> {
 function shaped(r: ItemRow): Record<string, unknown> {
   return {
     file: r.file,
+    gtCategory: r.gtCategory,
     gt: r.gt,
     expected: r.expected,
     status: r.status,
