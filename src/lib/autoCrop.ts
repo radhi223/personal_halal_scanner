@@ -83,6 +83,93 @@ function absorbedLineCount(pieces: string[]): number {
 }
 
 /**
+ * OCR strip-recovery planning (pure, platform-free).
+ *
+ * PaddleOCR's detector sizes its input from the longest side, so a wide/thin
+ * "strip" photo (2122x362, 1818x196, ...) is scaled down until the glyphs are
+ * tiny and detection drops most lines: one measured strip returned 8 chars
+ * full-image vs 1090 chars when split into ~800px overlapping vertical tiles.
+ * Cropping to tiles keeps each detector input near native resolution. The
+ * helpers below decide when that applies and produce the tile rects; the caller
+ * (src/lib/ocrPaddle.ts) does the platform-specific cropping.
+ */
+
+/** Below this many characters the first OCR pass is treated as a failure. */
+export const OCR_RETRY_MIN_CHARS = 20;
+
+/**
+ * Above this many characters no sparse-strip plan can trigger for images up to
+ * the app's 1600px work width (see STRIP_SPARSE_CHARS_PER_PX). Lets the OCR
+ * caller skip the dimension probe on the common case.
+ */
+export const OCR_STRIP_SCAN_MAX_CHARS = Math.round(1600 * 0.07);
+
+/** A strip is only worth tiling when it is at least 3x wider than tall (or short). */
+export function isExtremeStrip(width: number, height: number): boolean {
+  if (width <= 0 || height <= 0) return false;
+  return width / height >= 3 || height < 240;
+}
+
+/**
+ * Sparse-strip threshold: characters per pixel of strip width. 7% means a
+ * 1600px-wide strip with fewer than ~112 chars almost certainly lost text.
+ */
+export const STRIP_SPARSE_CHARS_PER_PX = 0.07;
+
+export const STRIP_TILE_WIDTH = 800;
+export const STRIP_TILE_OVERLAP = 100;
+
+export interface StripTilePlan {
+  tileWidth: number;
+  tileOverlap: number;
+}
+
+/**
+ * Plan overlapping vertical tiles for a sparse wide strip. Returns null when
+ * the image is not a strip or already yields enough text for its width.
+ */
+export function planStripTiles(
+  charCount: number,
+  width: number,
+  height: number
+): StripTilePlan | null {
+  if (!isExtremeStrip(width, height)) return null;
+  const enough = Math.max(OCR_RETRY_MIN_CHARS, Math.round(width * STRIP_SPARSE_CHARS_PER_PX));
+  if (charCount >= enough) return null;
+  return { tileWidth: STRIP_TILE_WIDTH, tileOverlap: STRIP_TILE_OVERLAP };
+}
+
+/** Left-to-right overlapping tile rects covering the full width. */
+export function tileRects(width: number, height: number, plan: StripTilePlan): CropRect[] {
+  const rects: CropRect[] = [];
+  const step = Math.max(1, plan.tileWidth - plan.tileOverlap);
+  for (let x = 0; x < width; x += step) {
+    const w = Math.min(plan.tileWidth, width - x);
+    rects.push({ originX: x, originY: 0, width: w, height });
+    if (x + w >= width) break;
+  }
+  return rects;
+}
+
+/**
+ * Concatenate per-tile OCR text, dropping lines already seen verbatim
+ * (whitespace-insensitive) so the overlap does not duplicate boundary lines.
+ */
+export function mergeOcrTileTexts(texts: string[]): string {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const text of texts) {
+    for (const line of text.split(/\r?\n/)) {
+      const key = line.replace(/\s+/g, '');
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      lines.push(line);
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
  * Phase 1 accuracy lever: find the pixel region of the 原材料名 list from ML Kit's
  * line frames, so we can crop to it and upscale before OCR.
  *

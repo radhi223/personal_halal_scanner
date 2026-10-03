@@ -11,6 +11,16 @@ import type { CropRect } from './autoCrop';
 const MAX_CROP_WIDTH = 1400;
 
 /**
+ * Pixel dimensions of an image, decoded via the same native pipeline used for
+ * cropping. Only called on the rare near-zero-OCR path (strip recovery), so the
+ * extra decode does not touch normal scans.
+ */
+export async function getImageSize(uri: string): Promise<{ width: number; height: number }> {
+  const image = await ImageManipulator.manipulate(uri).renderAsync();
+  return { width: image.width, height: image.height };
+}
+
+/**
  * Downscale the full label to a workable width before OCR. Both engines resize
  * to a fixed input size internally, so feeding a 3000px photo just makes them do
  * extra resampling work. Coordinates from this smaller image are scaled back up

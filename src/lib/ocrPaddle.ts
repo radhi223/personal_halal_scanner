@@ -1,6 +1,14 @@
 import { File } from 'expo-file-system';
 import { PaddleOcrService, V5_MOBILE_MODEL } from 'ppu-paddle-ocr/mobile';
 
+import {
+  mergeOcrTileTexts,
+  OCR_STRIP_SCAN_MAX_CHARS,
+  planStripTiles,
+  tileRects,
+} from './autoCrop';
+import { cropAndUpscale, getImageSize } from './imagePrep';
+
 /**
  * Second OCR engine: PaddleOCR PP-OCRv5 (multilingual, includes Japanese)
  * running on-device via onnxruntime-react-native + Skia.
@@ -73,6 +81,23 @@ export async function warmUpPaddle(): Promise<void> {
  */
 export const PADDLE_OCR_ENABLED = true;
 
+/**
+ * One recognition pass. per-line is the accuracy-first choice. The library's
+ * own benchmark (opencv engine, v6 tiny, same reference receipt) reports
+ * per-box/per-line 99.48% vs cross-line 94.26% recognition accuracy. We
+ * previously forced cross-line because it batches crops into uniform-width
+ * groups -> fewest inferences, but that was a speed-over-accuracy trade
+ * costing ~5 points. Accuracy wins.
+ */
+async function recognizeOnce(svc: PaddleOcrService, buffer: ArrayBuffer): Promise<string> {
+  const result = await svc.recognize(buffer, {
+    flatten: true,
+    minimumConfidence: 0.4,
+    strategy: 'per-line',
+  });
+  return result.text ?? '';
+}
+
 /** On-device Japanese OCR via PaddleOCR. Throws if native module unavailable. */
 export async function recognizeJapanesePaddle(imageUri: string): Promise<string> {
   if (!PADDLE_OCR_ENABLED) return '';
@@ -84,18 +109,45 @@ export async function recognizeJapanesePaddle(imageUri: string): Promise<string>
   console.log(`[Paddle] image bytes=${buffer.byteLength}`);
 
   const t1 = Date.now();
-  // per-line is the accuracy-first choice. The library's own benchmark (opencv
-  // engine, v6 tiny, same reference receipt) reports per-box/per-line 99.48%
-  // vs cross-line 94.26% recognition accuracy. We previously forced cross-line
-  // because it batches crops into uniform-width groups -> fewest inferences,
-  // but that was a speed-over-accuracy trade costing ~5 points. Accuracy wins.
-  const result = await svc.recognize(buffer, {
-    flatten: true,
-    minimumConfidence: 0.4,
-    strategy: 'per-line',
-  });
-  const text = result.text ?? '';
+  let text = await recognizeOnce(svc, buffer);
   console.log(`[Paddle] recognize ${Date.now() - t1}ms chars=${text.length}`);
+
+  // Strip recovery: a single pass over a wide/thin strip can return almost
+  // nothing because the detector scales its whole input down from the longest
+  // side. Re-read the strip as overlapping vertical tiles (same per-line
+  // options) and keep the merged text only when it beats the first pass.
+  // Gated on a character count that cannot be reached by a sparse strip at the
+  // app's <=1600px work width, so ordinary photos never pay for the probe.
+  if (text.length < OCR_STRIP_SCAN_MAX_CHARS) {
+    try {
+      const size = await getImageSize(imageUri);
+      const plan = planStripTiles(text.length, size.width, size.height);
+      if (plan) {
+        const t2 = Date.now();
+        const rects = tileRects(size.width, size.height, plan);
+        const tileTexts: string[] = [];
+        for (const rect of rects) {
+          const tile = await cropAndUpscale(imageUri, rect, 1);
+          tileTexts.push(await recognizeOnce(svc, await new File(tile.uri).arrayBuffer()));
+        }
+        const merged = mergeOcrTileTexts(tileTexts);
+        const ms = Date.now() - t2;
+        if (merged.length > text.length) {
+          console.log(
+            `[Paddle] strip tiles=${rects.length} ${text.length}->${merged.length} chars in ${ms}ms`
+          );
+          text = merged;
+        } else {
+          console.log(
+            `[Paddle] strip tiles=${rects.length} kept first pass (${text.length}>=${merged.length}) in ${ms}ms`
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Paddle] strip recovery failed:', String(err));
+    }
+  }
+
   console.log(`[Paddle] text=${text.slice(0, 300)}`);
   return text;
 }

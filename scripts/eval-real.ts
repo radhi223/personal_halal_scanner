@@ -2,8 +2,17 @@
  * Offline end-to-end evaluation harness on IMAGE FILES (no phone).
  *
  * Pipeline under test (the REAL one):
- *   PaddleOCR (V5_MOBILE_MODEL, Node entry) -> extractIngredientSection()
+ *   PaddleOCR (V5_MOBILE_MODEL, Node entry) -> strip-tile recovery
+ *     -> extractIngredientSection()
  *     -> analyzeLayered(getCuratedIndex(), getCatalogIndex(), section)
+ *
+ * FIX-B: the first OCR pass is followed by the app's strip recovery
+ * (src/lib/autoCrop.ts helpers, same trigger/tiles/keep-if-longer as
+ * src/lib/ocrPaddle.ts): wide/thin photos whose first pass yields fewer than
+ * max(20, width*0.07) chars are re-read as overlapping 800px tiles and the
+ * merged text replaces the first pass only when it is longer. Disable for
+ * A/B checks with --no-strip-recovery. `stripRecovery` and `rawText` are
+ * recorded per image so this is auditable.
  *
  * Run with tsx (not plain node) because this imports the app's TypeScript
  * modules through the `@/*` tsconfig alias, which tsx resolves natively:
@@ -65,8 +74,15 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { PaddleOcrService, V5_MOBILE_MODEL } from 'ppu-paddle-ocr';
 
+import {
+  mergeOcrTileTexts,
+  OCR_STRIP_SCAN_MAX_CHARS,
+  planStripTiles,
+  tileRects,
+} from '@/lib/autoCrop';
 import { getCatalogIndex, getCuratedIndex } from '@/lib/database';
 import { analyzeLayered } from '@/lib/matcher';
 import { extractIngredientSection } from '@/lib/normalize';
@@ -83,12 +99,14 @@ function parseArgs(argv: string[]): {
   kind: Kind | 'all';
   manifest: string | null;
   writeManifestKind: boolean;
+  stripRecovery: boolean;
 } {
   let dir = 'D:/opencode/temp/labels';
   let out = 'D:/opencode/temp/eval-real.json';
   let kind: Kind | 'all' = 'all';
   let manifest: string | null = null;
   let writeManifestKind = false;
+  let stripRecovery = true;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const take = () => argv[++i];
@@ -101,6 +119,8 @@ function parseArgs(argv: string[]): {
     else if (a === '--manifest') manifest = take() ?? manifest;
     else if (a.startsWith('--manifest=')) manifest = a.slice(11);
     else if (a === '--write-manifest-kind') writeManifestKind = true;
+    else if (a === '--no-strip-recovery') stripRecovery = false;
+    else if (a === '--strip-recovery') stripRecovery = true;
   }
   if (kind !== 'all' && !KINDS.includes(kind)) {
     throw new Error(`invalid --kind "${kind}" (expected label | guide | all)`);
@@ -112,6 +132,7 @@ function parseArgs(argv: string[]): {
     kind,
     manifest: manifest ? path.resolve(manifest) : path.join(resolvedDir, 'manifest.json'),
     writeManifestKind,
+    stripRecovery,
   };
 }
 
@@ -263,6 +284,52 @@ function formatAggregate(a: any): string {
   );
 }
 
+/** Same recognize options as src/lib/ocrPaddle.ts and the app's Paddle pass. */
+const OCR_OPTIONS = { flatten: true, minimumConfidence: 0.4, strategy: 'per-line' };
+
+/**
+ * Mirror the app's strip recovery (src/lib/ocrPaddle.ts) with the pure helpers
+ * from src/lib/autoCrop.ts. Returns the first-pass text unchanged unless the
+ * image is an extreme strip with too few characters for its width, in which
+ * case the merged tile text replaces it only when it is longer.
+ */
+async function recognizeWithStripRecovery(
+  svc: PaddleOcrService,
+  arrayBuffer: ArrayBuffer,
+  firstPassText: string,
+  enabled: boolean
+): Promise<{ text: string; stripRecovery: any | null }> {
+  let text = firstPassText;
+  if (!enabled || text.length >= OCR_STRIP_SCAN_MAX_CHARS) return { text, stripRecovery: null };
+  try {
+    const src = await loadImage(Buffer.from(arrayBuffer));
+    const plan = planStripTiles(text.length, src.width, src.height);
+    if (!plan) return { text, stripRecovery: null };
+    const rects = tileRects(src.width, src.height, plan);
+    const tileTexts: string[] = [];
+    for (const rect of rects) {
+      const canvas = createCanvas(rect.width, rect.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(src, rect.originX, rect.originY, rect.width, rect.height, 0, 0, rect.width, rect.height);
+      const png = canvas.toBuffer('image/png');
+      const tileAb = png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength);
+      const tileRes = await svc.recognize(tileAb, OCR_OPTIONS);
+      tileTexts.push(tileRes.text ?? '');
+    }
+    const merged = mergeOcrTileTexts(tileTexts);
+    const info = {
+      tiles: rects.length,
+      before: text.length,
+      merged: merged.length,
+      kept: merged.length > text.length,
+    };
+    if (info.kept) text = merged;
+    return { text, stripRecovery: info };
+  } catch (err) {
+    return { text, stripRecovery: { error: String(err) } };
+  }
+}
+
 function writeManifestWithKind(manifestPath: string, classified: any[]): void {
   if (!manifestPath || !existsSync(manifestPath)) {
     console.log('--write-manifest-kind: manifest not found, skipped');
@@ -288,9 +355,14 @@ function writeManifestWithKind(manifestPath: string, classified: any[]): void {
 }
 
 async function main(): Promise<void> {
-  const { dir, out, kind: kindFilter, manifest, writeManifestKind } = parseArgs(
-    process.argv.slice(2)
-  );
+  const {
+    dir,
+    out,
+    kind: kindFilter,
+    manifest,
+    writeManifestKind,
+    stripRecovery: stripRecoveryEnabled,
+  } = parseArgs(process.argv.slice(2));
 
   if (!existsSync(dir)) {
     console.log(`image folder not found: ${dir}`);
@@ -374,14 +446,19 @@ async function main(): Promise<void> {
 
     const t1 = Date.now();
     let text = '';
+    let stripRecovery: any = null;
     let ocrError: string | null = null;
     try {
-      const result = await service.recognize(arrayBuffer, {
-        flatten: true,
-        minimumConfidence: 0.4,
-        strategy: 'per-line',
-      });
+      const result = await service.recognize(arrayBuffer, OCR_OPTIONS);
       text = result.text ?? '';
+      const recovered = await recognizeWithStripRecovery(
+        service,
+        arrayBuffer,
+        text,
+        stripRecoveryEnabled
+      );
+      text = recovered.text;
+      stripRecovery = recovered.stripRecovery;
     } catch (err) {
       ocrError = String(err);
     }
@@ -414,15 +491,32 @@ async function main(): Promise<void> {
       matchedList: matched.map(
         (f) => `${f.raw}=${f.match!.entry.status}(${f.match!.entry.id})`
       ),
+      // Full finding records (matchedTerm/reviewed included) so validate-real's
+      // harness mode can mirror measure.ts alignment exactly. matchedList is
+      // kept for backward compatibility.
+      findings: findings.map((f) => ({
+        raw: f.raw,
+        status: f.match ? f.match.entry.status : 'unmatched',
+        entryId: f.match ? f.match.entry.id : null,
+        matchedTerm: f.match ? f.match.matchedTerm : null,
+        kind: f.match ? f.match.kind : null,
+        reviewed: f.match ? f.match.entry.reviewed : undefined,
+      })),
       unmatchedTokens: unmatched.map((f) => f.raw),
       unknownTokens: unknown.map((f) => f.raw),
       section,
+      rawText: text,
+      ...(stripRecovery ? { stripRecovery } : {}),
       ...(ocrError ? { ocrError } : {}),
     });
 
     console.log(
       `  [${c.kind}] ${c.rel}  ocr=${ocrMs}ms raw=${text.length} section=${section.length} ` +
-        `matched=${matched.length} unmatched=${unmatched.length} unknown=${unknown.length}`
+        `matched=${matched.length} unmatched=${unmatched.length} unknown=${unknown.length}` +
+        (stripRecovery
+          ? ` strip=${stripRecovery.tiles ?? '?'} ${stripRecovery.before}->${stripRecovery.merged}` +
+            (stripRecovery.kept ? ' KEPT' : ' kept-first')
+          : '')
     );
   }
 
@@ -449,6 +543,7 @@ async function main(): Promise<void> {
     manifest,
     model: 'V5_MOBILE_MODEL',
     kindFilter,
+    stripRecovery: stripRecoveryEnabled,
     initMs,
     kindCounts: { ...kindCounts, total: allFiles.length },
     sourceCounts,

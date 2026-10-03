@@ -20,10 +20,14 @@
  *   --out <file.json>            write the full report
  *   --min-classification 0.90 --min-hazard 0.95 --max-unknown 0.03 --max-unmatched 0.07
  *   --max-false-halal 0 --max-false-haram 0
+ *   --no-status-preference       disable the risky-compound -> risk-part repair
  *
- * Alignment is the audited measure.ts v2 approach: folding (CJK/katakana
- * look-alikes), matchedTerm + raw candidates, bracket-insensitive joined form,
- * greedy one-to-one by descending pairScore, explicit OVERRIDES first.
+ * Alignment is the FIX-B v3 approach (mirrors D:/opencode/temp/goldenset/
+ * measure.ts): ranked match classes exact > head-prefix > joined > substring,
+ * folding (CJK/katakana look-alikes), matchedTerm + raw candidates, greedy
+ * one-to-one by descending pairScore, explicit OVERRIDES first, then a
+ * status-preference pass for risky compounds (see pairScore / alignImage).
+ * Disable the status-preference pass with --no-status-preference.
  *
  * OCR-level metrics need engine raw text. The current eval-real.ts harness
  * (pre-P0-4) does not emit it, so they are reported as n/a in harness mode;
@@ -76,12 +80,20 @@ interface Args {
   maxUnmatched: number;
   maxFalseHalal: number;
   maxFalseHaram: number;
+  /** risky-compound -> risk-determining sub-part re-pointing (default on). */
+  statusPref: boolean;
 }
 
 interface AlignEntry {
   fi: number;
   score: number;
   via: string;
+}
+
+interface AlignResult {
+  mapping: Map<number, AlignEntry>;
+  /** risky GT items re-pointed to the sub-part finding carrying their status */
+  statusPrefResolved: number;
 }
 
 /* --------------------------- alignment core ---------------------------- */
@@ -156,6 +168,43 @@ function commonPrefix(a: string, b: string): number {
   return i;
 }
 
+/**
+ * Windowed approximate containment (edit budget 1 for needles >= 4 chars),
+ * window length needle±1 so single OCR insert/delete variants (加工デプン vs
+ * 加工デンプン) still count as the same part.
+ */
+function fuzzyIn(hay: string, needle: string): boolean {
+  if (!hay || !needle || needle.length < 2) return false;
+  if (hay.includes(needle)) return true;
+  if (needle.length < 4) return false;
+  for (const len of [needle.length - 1, needle.length, needle.length + 1]) {
+    if (len < 2) continue;
+    for (let i = 0; i + len <= hay.length; i++) {
+      if (levenshtein(needle, hay.slice(i, i + len)) <= 1) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Alignment rule (FIX-B), ranked classes so a head/prefix match always beats a
+ * substring buried inside a parenthesised qualifier:
+ *
+ *   1. exact normalized raw equality                    1.00
+ *   2. bracket-head equality (coreForm)                 0.98
+ *   3. joined equality (loose/flat, OCR-fold-insensitive) 0.97 / 0.96
+ *   4. prefix of the head (finding form is a prefix of
+ *      the GT compound / vice versa)                    0.94 / 0.92 / 0.90
+ *   5. substring (coverage-scaled)                      0.78 - 0.90
+ *   6. fuzzy common-prefix / edit similarity            0.60 - 0.92
+ *
+ * A finding that matches ONLY text inside the GT's parentheses (a qualifier
+ * such as （大豆由来）（乳由来）（オーストラリア製造）) is NOT a valid alignment:
+ * the GT verdict belongs to the head, not to the qualifier. Such candidates
+ * score 0.30 (< the 0.6 pair threshold), so GT 香料（大豆由来） can never be
+ * scored as the app's 大豆由来 finding. The compound's risk status is instead
+ * resolved by the status-preference pass in alignImage().
+ */
 function pairScore(gtRaw: string, fRaw: string): number {
   const gn = surfaceNorm(gtRaw);
   const gc = coreForm(gtRaw);
@@ -172,6 +221,42 @@ function pairScore(gtRaw: string, fRaw: string): number {
   if (gl && fl && gl === fl) return 0.97;
   if (gf && ff && gf === ff) return 0.96;
 
+  // prefix(head): one core is a prefix of the other.
+  if (gc && fc && (gc.startsWith(fc) || fc.startsWith(gc))) {
+    return 0.94 + 0.01 * (Math.min(gc.length, fc.length) / Math.max(gc.length, fc.length));
+  }
+  if (gl && fl && (gl.startsWith(fl) || fl.startsWith(gl))) {
+    return 0.92 + 0.01 * (Math.min(gl.length, fl.length) / Math.max(gl.length, fl.length));
+  }
+  if (gf && ff && (gf.startsWith(ff) || ff.startsWith(gf))) {
+    return 0.9 + 0.01 * (Math.min(gf.length, ff.length) / Math.max(gf.length, ff.length));
+  }
+
+  // substring: coverage-scaled, below every prefix class.
+  let sub = 0;
+  for (const [a, b] of [
+    [gc, fc],
+    [gl, fl],
+    [gf, ff],
+  ]) {
+    if (!a || !b) continue;
+    if (a.includes(b) || b.includes(a)) {
+      sub = Math.max(sub, 0.78 + 0.08 * (Math.min(a.length, b.length) / Math.max(a.length, b.length)));
+    }
+  }
+  if (sub) {
+    const headRaw = gtRaw.split(/[(（]/)[0];
+    const headForms = [surfaceNorm(headRaw), coreForm(headRaw), flatForm(headRaw), looseForm(headRaw)].filter(
+      (h) => h.length > 0
+    );
+    const candForms = [fn, fc, ff, fl].filter((c) => c.length > 0);
+    const onlyQualifier = candForms.every(
+      (c) => c.length >= 2 && !headForms.some((h) => h.includes(c) || c.includes(h))
+    );
+    if (onlyQualifier) return 0.3;
+    return Math.min(sub, 0.9);
+  }
+
   let best = 0;
   for (const [a, b] of [
     [gc, fc],
@@ -179,15 +264,30 @@ function pairScore(gtRaw: string, fRaw: string): number {
     [gf, ff],
   ]) {
     if (!a || !b) continue;
-    if (a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a))) {
-      best = Math.max(best, 0.92);
-    }
     const p = commonPrefix(a, b);
     if (p >= 3) best = Math.max(best, 0.6 + 0.35 * (p / Math.min(a.length, b.length)));
     const sim = 1 - levenshtein(a, b) / Math.max(a.length, b.length, 1);
     if (sim >= 0.65) best = Math.max(best, sim * 0.85);
   }
   return best;
+}
+
+/**
+ * Status-preference helper: true when one of `forms` is a textual part (head
+ * or bracket segment) of the GT raw, tolerating one OCR-variant character.
+ */
+function isPartOfGt(gtRaw: string, forms: string[]): boolean {
+  const segments = [coreForm(gtRaw), flatForm(gtRaw), looseForm(gtRaw)];
+  for (const form of forms) {
+    const cf = flatForm(form);
+    const cl = looseForm(form);
+    const cn = surfaceNorm(form);
+    for (const seg of segments) {
+      if (fuzzyIn(seg, cf) || fuzzyIn(seg, cl) || fuzzyIn(seg, cn)) return true;
+      if (fuzzyIn(cf, seg) || fuzzyIn(cl, seg)) return true;
+    }
+  }
+  return false;
 }
 
 function ocrHit(gtRaw: string, ocrLoose: string): { exact: boolean; variant: boolean } {
@@ -227,8 +327,9 @@ function alignImage(
   ingredients: GtIngredient[],
   findings: Finding[],
   file: string,
-  overrides: Record<string, string>
-): Map<number, AlignEntry> {
+  overrides: Record<string, string>,
+  statusPref = true
+): AlignResult {
   const mapping = new Map<number, AlignEntry>();
   const used = new Set<number>();
 
@@ -270,7 +371,36 @@ function alignImage(
     mapping.set(p.gi, { fi: p.fi, score: p.score, via: p.via });
     used.add(p.fi);
   }
-  return mapping;
+
+  // Status-preference pass ("risk-determining part"): a risky GT compound whose
+  // aligned finding has the wrong status is re-pointed to the sub-part finding
+  // that carries the GT's expected status. The sub-part must be textually
+  // inside the GT raw, so this can only pick a finding the label really lists;
+  // it is reported (count) and can be disabled with --no-status-preference.
+  let statusPrefResolved = 0;
+  if (statusPref) {
+    for (let gi = 0; gi < ingredients.length; gi++) {
+      const expected = ingredients[gi].expected;
+      if (expected !== 'syubhat' && expected !== 'haram') continue;
+      const current = mapping.get(gi);
+      const currentStatus = current ? findings[current.fi].status : 'unmatched';
+      if (currentStatus === expected) continue;
+      let best: { fi: number; score: number } | null = null;
+      for (let fi = 0; fi < findings.length; fi++) {
+        if (findings[fi].status !== expected) continue;
+        const forms = [findings[fi].raw, findings[fi].matchedTerm].filter(Boolean).map(String);
+        if (!isPartOfGt(ingredients[gi].raw, forms)) continue;
+        const score = Math.max(...forms.map((form) => pairScore(ingredients[gi].raw, form)));
+        if (!best || score > best.score) best = { fi, score };
+      }
+      if (best) {
+        mapping.set(gi, { fi: best.fi, score: best.score, via: 'status-part' });
+        statusPrefResolved++;
+      }
+    }
+  }
+
+  return { mapping, statusPrefResolved };
 }
 
 /* ----------------------------- effectiveStatus ------------------------- */
@@ -306,12 +436,30 @@ function loadHarnessImages(file: string): RunImage[] {
   const images: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.images) ? raw.images : [];
   return images.map((img) => {
     const findings: Finding[] = [];
-    for (const tok of img.matchedList ?? []) {
-      const f = parseFindingToken(String(tok));
-      if (f) findings.push(f);
-    }
-    for (const t of img.unmatchedTokens ?? []) {
-      findings.push({ raw: String(t), status: 'unmatched', entryId: null, matchedTerm: null, kind: null });
+    if (Array.isArray(img.findings) && img.findings.length > 0) {
+      // FIX-B: eval-real emits full finding records (raw + matchedTerm), so the
+      // harness path aligns exactly like measure.ts. Fall back to matchedList
+      // for older harness files.
+      for (const x of img.findings) {
+        if (!x || typeof x.raw !== 'string') continue;
+        const status = typeof x.status === 'string' && x.status ? x.status : x.entryId ? 'unknown' : 'unmatched';
+        findings.push({
+          raw: String(x.raw),
+          status,
+          entryId: x.entryId != null ? String(x.entryId) : null,
+          matchedTerm: x.matchedTerm != null ? String(x.matchedTerm) : null,
+          kind: x.kind != null ? String(x.kind) : null,
+          reviewed: typeof x.reviewed === 'boolean' ? x.reviewed : undefined,
+        });
+      }
+    } else {
+      for (const tok of img.matchedList ?? []) {
+        const f = parseFindingToken(String(tok));
+        if (f) findings.push(f);
+      }
+      for (const t of img.unmatchedTokens ?? []) {
+        findings.push({ raw: String(t), status: 'unmatched', entryId: null, matchedTerm: null, kind: null });
+      }
     }
     const rawText: string | null =
       typeof img.rawText === 'string'
@@ -441,6 +589,7 @@ function parseArgs(argv: string[]): Args {
     maxUnmatched: 0.07,
     maxFalseHalal: 0,
     maxFalseHaram: 0,
+    statusPref: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -475,6 +624,8 @@ function parseArgs(argv: string[]): Args {
     else if (arg.startsWith('--max-false-halal=')) a.maxFalseHalal = num(arg.slice(18), a.maxFalseHalal);
     else if (arg === '--max-false-haram') a.maxFalseHaram = num(take(), a.maxFalseHaram);
     else if (arg.startsWith('--max-false-haram=')) a.maxFalseHaram = num(arg.slice(18), a.maxFalseHaram);
+    else if (arg === '--no-status-preference' || arg === '--no-status-pref') a.statusPref = false;
+    else if (arg === '--status-preference' || arg === '--status-pref') a.statusPref = true;
   }
   return a;
 }
@@ -574,6 +725,7 @@ async function main(): Promise<void> {
   const rows: ItemRow[] = [];
   const coveredImages = new Set<string>();
   const harnessFilesSeen = new Set<string>();
+  let statusPrefResolved = 0;
 
   const statusOf = (img: RunImage | null, gi: number, al: Map<number, AlignEntry> | null): {
     f: Finding | null;
@@ -593,7 +745,9 @@ async function main(): Promise<void> {
     } else {
       img = deviceMap?.get(ri) ?? null;
     }
-    const al = img ? alignImage(ing, img.findings, rec.file, overrides) : null;
+    const aligned = img ? alignImage(ing, img.findings, rec.file, overrides, args.statusPref) : null;
+    const al = aligned?.mapping ?? null;
+    if (aligned) statusPrefResolved += aligned.statusPrefResolved;
     if (img) coveredImages.add(normKey(img.file));
 
     ing.forEach((g, gi) => {
@@ -680,7 +834,7 @@ async function main(): Promise<void> {
   const countLeakage = (img: RunImage, file: string): void => {
     const gtRec = gtRecs.find((r) => normKey(r.file) === normKey(file));
     const ing = gtRec?.ingredients ?? [];
-    const al = alignImage(ing, img.findings, gtRec?.file ?? file, overrides);
+    const { mapping: al } = alignImage(ing, img.findings, gtRec?.file ?? file, overrides, args.statusPref);
     const usedFi = new Set([...al.values()].map((x) => x.fi));
     img.findings.forEach((f, fi) => {
       if (!VERDICTS.has(f.status)) return;
@@ -787,6 +941,10 @@ async function main(): Promise<void> {
     console.log(`  OCR recall variant         : ${fmtPct(pct(ocrVariant, ocrCovered.length))}`);
   }
   console.log(`  noise leakage              : ${fmtPct(noiseLeakage)} (${verdictFindings - alignedVerdictFindings}/${verdictFindings} emitted findings unaligned)`);
+  console.log(
+    `  status-preference repairs  : ${statusPrefResolved} risky GT item(s) re-pointed to their risk-determining sub-part` +
+      (args.statusPref ? '' : ' (DISABLED)')
+  );
   console.log('');
 
   /* ------------------------------ false halal -------------------------- */
@@ -913,6 +1071,8 @@ async function main(): Promise<void> {
         e2eCorrectRecall: e2eRecall,
         overCautionT2: t2.length,
         noiseLeakage,
+        statusPrefResolved,
+        statusPreference: args.statusPref,
         ocrExact: ocrCovered.length ? pct(ocrExact, ocrCovered.length) : null,
         ocrVariant: ocrCovered.length ? pct(ocrVariant, ocrCovered.length) : null,
       },
