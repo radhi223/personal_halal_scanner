@@ -55,7 +55,7 @@ export default function SearchScreen() {
           style={styles.input}
           value={query}
           onChangeText={setQuery}
-          placeholder="Ketik nama bahan (Jepang / romaji)…"
+          placeholder="Ketik nama bahan — Jepang, romaji, Inggris, atau kode E…"
           placeholderTextColor={colors.muted}
           autoFocus
           autoCorrect={false}
@@ -86,8 +86,10 @@ export default function SearchScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Cari bahan tanpa memotret</Text>
             <Text style={styles.cardBody}>
-              Ketik atau tempel nama bahan dari label Jepang — kanji, kana, atau romaji.
-              Hasil muncul sambil mengetik dan seluruh pencarian berjalan offline.
+              Pindai label bahan makanan Jepang, lalu cek status halal/haram/syubhat
+              setiap bahannya. Berjalan offline (model presisi diunduh sekali saat pertama
+              pakai). Ketik atau tempel nama bahan dari label Jepang — kanji, kana, atau
+              romaji; hasil muncul sambil mengetik.
             </Text>
             <Text style={styles.cardMeta}>
               Database lokal: {curated.entries.length} bahan ditinjau +{' '}

@@ -5,7 +5,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { appendFeedbackRecord } from '@/lib/debugFile';
 import { getLastScan } from '@/lib/scanStore';
 import { computeVerdictBanner, effectiveStatus } from '@/lib/verdict';
-import { colors, statusColor, statusLabel, statusRank, verdictToneColor } from '@/theme';
+import {
+  colors,
+  statusColor,
+  statusGuidance,
+  statusLabel,
+  statusRank,
+  verdictToneColor,
+} from '@/theme';
 import type { HalalStatus, IngredientEntry, ScanFinding } from '@/types';
 
 const STATUS_ORDER: HalalStatus[] = ['haram', 'syubhat', 'unknown', 'halal'];
@@ -26,8 +33,12 @@ const basisLabel: Record<NonNullable<IngredientEntry['basis']>, string> = {
   'origin-signal': 'sinyal asal bahan',
 };
 
+const UNMATCHED_PREVIEW = 8;
+
 export default function ResultScreen() {
   const scan = getLastScan();
+  const [ocrOpen, setOcrOpen] = useState(false);
+  const [showAllUnmatched, setShowAllUnmatched] = useState(false);
 
   const matched = useMemo(() => {
     if (!scan) return [];
@@ -64,9 +75,10 @@ export default function ResultScreen() {
         halal: counts.halal,
         unknown: counts.unknown,
         matched: matched.length,
+        unmatched: unmatched.length,
         lowQuality: scan?.lowQuality === true,
       }),
-    [counts, matched.length, scan?.lowQuality]
+    [counts, matched.length, unmatched.length, scan?.lowQuality]
   );
 
   if (!scan) {
@@ -87,6 +99,17 @@ export default function ResultScreen() {
         <Text style={styles.bannerSub}>{verdict.detail}</Text>
       </View>
 
+      {matched.length === 0 && (
+        <View style={styles.retryBlock}>
+          <Pressable style={styles.btn} onPress={() => router.replace('/scan')}>
+            <Text style={styles.btnText}>Pindai Ulang</Text>
+          </Pressable>
+          <Pressable style={styles.retrySecondary} onPress={() => router.push('/search')}>
+            <Text style={styles.retrySecondaryText}>Cari Bahan Manual</Text>
+          </Pressable>
+        </View>
+      )}
+
       {scan.lowQuality && (
         <View style={[styles.card, styles.warnCard]}>
           <Text style={styles.warnTitle}>Hasil mungkin kurang akurat</Text>
@@ -99,7 +122,9 @@ export default function ResultScreen() {
 
       <View style={styles.countsRow}>
         {STATUS_ORDER.map((status) => (
-          <View key={status} style={styles.countCard}>
+          <View
+            key={status}
+            style={[styles.countCard, counts[status] === 0 && styles.countCardZero]}>
             <Text style={[styles.countNum, { color: statusColor[status] }]}>
               {counts[status]}
             </Text>
@@ -112,8 +137,8 @@ export default function ResultScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Tidak ada bahan yang cocok</Text>
           <Text style={styles.cardBody}>
-            Teks terbaca, tetapi tidak ada yang cocok dengan database. Coba foto lebih
-            dekat dan fokus, atau tambahkan bahan ini ke database manual.
+            Teks label terbaca, tetapi belum ada yang cocok di database. Ini bukan tanda
+            produk aman — foto ulang lebih dekat, atau cari nama bahannya satu per satu.
           </Text>
         </View>
       )}
@@ -135,26 +160,55 @@ export default function ResultScreen() {
             Belum ada di database kami ({unmatched.length})
           </Text>
           <Text style={styles.cardBody}>
-            Bahan ini tidak dikenali, jadi belum bisa dinilai. Cek sendiri komposisinya:
+            Bahan ini tidak ada di database, jadi belum bisa dinilai — TIDAK berarti aman
+            atau halal. Periksa sendiri di kemasan, atau cari satu per satu di menu Cari
+            Bahan.
           </Text>
-          {unmatched.map((f) => (
+          {(showAllUnmatched
+            ? unmatched
+            : unmatched.slice(0, UNMATCHED_PREVIEW)
+          ).map((f) => (
             <Text key={f.normalized} style={styles.unknownItem}>
               • {f.raw}
             </Text>
           ))}
+          {unmatched.length > UNMATCHED_PREVIEW && (
+            <View style={styles.moreRow}>
+              {!showAllUnmatched && (
+                <Text style={styles.moreText}>
+                  … +{unmatched.length - UNMATCHED_PREVIEW} lainnya
+                </Text>
+              )}
+              <Pressable onPress={() => setShowAllUnmatched((v) => !v)} hitSlop={6}>
+                <Text style={styles.toggleText}>
+                  {showAllUnmatched ? 'Sembunyikan' : 'Tampilkan semua'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Bagian yang dianalisis (原材料名){scan.cropped ? ' · auto-crop 2×' : ''}
-        </Text>
-        <Text style={styles.rawText}>{scan.section || '(tidak ditemukan)'}</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Teks mentah OCR (ML Kit + PaddleOCR)</Text>
-        <Text style={styles.rawText}>{scan.rawText || '(kosong)'}</Text>
+        <Pressable
+          style={styles.ocrHeader}
+          onPress={() => setOcrOpen((v) => !v)}
+          hitSlop={6}>
+          <Text style={styles.cardTitle}>Tampilkan teks OCR (debug)</Text>
+          <Text style={styles.chevron}>{ocrOpen ? '▲' : '▼'}</Text>
+        </Pressable>
+        {ocrOpen && (
+          <>
+            <Text style={styles.ocrLabel}>
+              Bagian yang dianalisis (原材料名){scan.cropped ? ' · auto-crop 2×' : ''}
+            </Text>
+            <Text style={styles.rawText}>{scan.section || '(tidak ditemukan)'}</Text>
+            <Text style={[styles.ocrLabel, styles.ocrLabelSpaced]}>
+              Teks mentah OCR (ML Kit + PaddleOCR)
+            </Text>
+            <Text style={styles.rawText}>{scan.rawText || '(kosong)'}</Text>
+          </>
+        )}
       </View>
 
       <Pressable style={styles.btn} onPress={() => router.replace('/scan')}>
@@ -217,9 +271,13 @@ function FindingCard({ finding, sid }: { finding: ScanFinding; sid: string }) {
         <Text style={styles.sources}>Sumber: {entry.sources.join(' • ')}</Text>
       )}
 
+      <Text style={[styles.guidance, { color }]}>{statusGuidance[shown]}</Text>
+
       <Pressable onPress={markWrong} disabled={marked} style={styles.markBtn} hitSlop={6}>
         <Text style={[styles.markText, marked && styles.markTextDone]}>
-          {marked ? 'Ditandai salah ✓' : 'Tandai salah'}
+          {marked
+            ? 'Tercatat di log debug — bantu prioritas tinjauan database. Terima kasih.'
+            : 'Tandai salah'}
         </Text>
       </Pressable>
     </View>
@@ -273,10 +331,29 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
   },
+  countCardZero: {
+    opacity: 0.35,
+  },
   countLabel: {
     fontSize: 11,
     color: colors.muted,
     marginTop: 2,
+  },
+  retryBlock: {
+    gap: 8,
+  },
+  retrySecondary: {
+    backgroundColor: colors.card,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  retrySecondaryText: {
+    color: colors.brand,
+    fontWeight: '700',
+    fontSize: 16,
   },
   card: {
     backgroundColor: colors.card,
@@ -303,6 +380,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  moreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 2,
+  },
+  moreText: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  toggleText: {
+    fontSize: 13,
+    color: colors.brand,
+    fontWeight: '700',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -347,25 +440,48 @@ const styles = StyleSheet.create({
   },
   markBtn: {
     alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: 2,
   },
   markText: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.muted,
   },
   markTextDone: {
     color: colors.haram,
     fontWeight: '700',
   },
+  ocrHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  chevron: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  ocrLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  ocrLabelSpaced: {
+    marginTop: 6,
+  },
   rawText: {
     fontSize: 13,
     lineHeight: 20,
     color: colors.text,
+  },
+  guidance: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   btn: {
     backgroundColor: colors.brand,

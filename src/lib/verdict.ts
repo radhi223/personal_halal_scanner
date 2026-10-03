@@ -32,6 +32,12 @@ export interface VerdictInput {
   unknown: number;
   /** Total findings that matched a database entry. */
   matched: number;
+  /**
+   * Findings that did NOT match any database entry. These are NOT safe: a scan
+   * with a few reviewed matches plus several unmatched tokens must never show
+   * the green `ok` banner (over-claim guard).
+   */
+  unmatched: number;
   lowQuality: boolean;
 }
 
@@ -43,17 +49,19 @@ export interface VerdictBanner {
 
 /**
  * Decision table, safety first:
- *   haram > syubhat > no match > low quality > unknown-only > partially unknown > ok
- * `ok` is reachable only when every matched ingredient has a reviewed verdict.
+ *   haram > syubhat > no match > low quality > unknown-only > partially unknown >
+ *   unmatched-present > ok
+ * `ok` is reachable only when every finding is matched AND has a reviewed verdict.
  */
 export function computeVerdictBanner(input: VerdictInput): VerdictBanner {
-  const { haram, syubhat, halal, unknown, matched, lowQuality } = input;
+  const { haram, syubhat, halal, unknown, matched, unmatched, lowQuality } = input;
+  const unmatchedNote = unmatched > 0 ? ` • ${unmatched} belum ada di database` : '';
 
   if (haram > 0) {
     return {
       tone: 'danger',
       title: 'Ditemukan bahan haram',
-      detail: `${haram} haram • ${syubhat} syubhat • ${matched} bahan cocok`,
+      detail: `${haram} haram • ${syubhat} syubhat • ${matched} bahan cocok${unmatchedNote}`,
     };
   }
 
@@ -61,15 +69,25 @@ export function computeVerdictBanner(input: VerdictInput): VerdictBanner {
     return {
       tone: 'caution',
       title: 'Ada bahan yang perlu diperhatikan',
-      detail: `${syubhat} syubhat • ${unknown} belum ditinjau • ${matched} bahan cocok`,
+      detail: `${syubhat} syubhat • ${unknown} belum ditinjau • ${matched} bahan cocok${unmatchedNote}`,
     };
   }
 
   if (matched === 0) {
+    // Distinguish "photo unreadable" from "text read, nothing in the database".
+    // Both mean the same thing for safety (do not eat / re-scan), but the user
+    // action differs: re-frame the photo vs. search the ingredient manually.
+    if (lowQuality) {
+      return {
+        tone: 'unknown',
+        title: 'Foto kurang jelas — teks hampir tidak terbaca',
+        detail: '0 bahan terbaca • foto ulang lebih dekat, cahaya cukup, hindari kilau',
+      };
+    }
     return {
       tone: 'unknown',
       title: 'Tidak ada bahan yang dikenali',
-      detail: '0 bahan cocok dengan database • hasil belum bisa dinilai',
+      detail: 'Teks terbaca tetapi 0 cocok dengan database • coba Cari Bahan manual',
     };
   }
 
@@ -93,7 +111,17 @@ export function computeVerdictBanner(input: VerdictInput): VerdictBanner {
     return {
       tone: 'caution',
       title: 'Sebagian bahan belum ditinjau',
-      detail: `${halal} halal • ${unknown} belum ditinjau • ${matched} bahan cocok`,
+      detail: `${halal} halal • ${unknown} belum ditinjau • ${matched} bahan cocok${unmatchedNote}`,
+    };
+  }
+
+  // Unmatched tokens are not safe just because the matched ones are reviewed.
+  // Green `ok` is only reachable when every finding is matched AND reviewed.
+  if (unmatched > 0) {
+    return {
+      tone: 'caution',
+      title: 'Sebagian bahan belum ada di database',
+      detail: `${halal} halal • ${unmatched} belum bisa dinilai • ${matched} bahan cocok`,
     };
   }
 

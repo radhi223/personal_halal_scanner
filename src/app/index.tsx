@@ -1,27 +1,88 @@
+import { File, Paths } from 'expo-file-system';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { loadCatalog, loadCurated } from '@/lib/database';
+import {
+  getCatalogIndex,
+  getCuratedIndex,
+  loadCatalog,
+  loadCurated,
+} from '@/lib/database';
 import { warmUpPaddle } from '@/lib/ocrPaddle';
 import { colors } from '@/theme';
+
+const ONBOARDED_FILE = 'onboarded.json';
 
 export default function HomeScreen() {
   const curated = loadCurated();
   const catalog = loadCatalog();
+  const [showIntro, setShowIntro] = useState(false);
 
-  // Load the PaddleOCR models in the background so the first scan is not slow.
   useEffect(() => {
+    // Load the PaddleOCR models and build both match indexes in the background
+    // so the first scan does not pay for them.
     warmUpPaddle();
+    getCuratedIndex();
+    getCatalogIndex();
+
+    // First-run disclaimer gate. No new dependency: the flag is a flag file.
+    try {
+      const flag = new File(Paths.document, ONBOARDED_FILE);
+      if (!flag.exists) setShowIntro(true);
+    } catch {
+      setShowIntro(true);
+    }
   }, []);
 
+  const dismissIntro = () => {
+    try {
+      const flag = new File(Paths.document, ONBOARDED_FILE);
+      if (!flag.exists) flag.create({ overwrite: true });
+      flag.write(JSON.stringify({ at: new Date().toISOString() }));
+    } catch (err) {
+      console.warn('[index] onboarded flag write failed:', String(err));
+    }
+    setShowIntro(false);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Cek Halal</Text>
-      <Text style={styles.subtitle}>
-        Pindai label bahan makanan Jepang, lalu cek status halal/haram/syubhat setiap
-        bahannya. Bekerja penuh offline.
-      </Text>
+    <>
+      <Modal
+        visible={showIntro}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissIntro}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Sebelum mulai</Text>
+            <Text style={styles.modalBody}>
+              Ini alat bantu baca label, BUKAN sertifikasi halal resmi. Hasil OCR bisa
+              salah baca; status bahan bisa berubah bila produsen mengubah formulasi.
+              Status "Syubhat" berarti meragukan, bukan pasti haram. Bila ragu,
+              tinggalkan (prinsip syubhat).
+            </Text>
+            <Pressable style={styles.modalPrimary} onPress={dismissIntro}>
+              <Text style={styles.modalPrimaryText}>Mengerti, Mulai</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modalSecondary}
+              onPress={() => {
+                setShowIntro(false);
+                router.push('/disclaimer');
+              }}>
+              <Text style={styles.modalSecondaryText}>Baca Disclaimer Lengkap</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Cek Halal</Text>
+        <Text style={styles.subtitle}>
+          Pindai label bahan makanan Jepang, lalu cek status halal/haram/syubhat setiap
+          bahannya. Berjalan offline (model presisi diunduh sekali saat pertama pakai).
+        </Text>
 
       <Pressable
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
@@ -56,11 +117,12 @@ export default function HomeScreen() {
         <Text style={styles.cardMeta}>Versi {curated.version}</Text>
       </View>
 
-      <Text style={styles.footnote}>
-        Alat bantu pribadi. Bukan pengganti sertifikasi halal resmi. Selalu cek label
-        halal atau tanyakan ke lembaga sertifikasi untuk kepastian.
-      </Text>
-    </ScrollView>
+        <Text style={styles.footnote}>
+          Alat bantu pribadi. Bukan pengganti sertifikasi halal resmi. Selalu cek label
+          halal atau tanyakan ke lembaga sertifikasi untuk kepastian.
+        </Text>
+      </ScrollView>
+    </>
   );
 }
 
@@ -133,5 +195,49 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.muted,
     marginTop: 8,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    gap: 12,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  modalBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+  },
+  modalPrimary: {
+    backgroundColor: colors.brand,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalPrimaryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalSecondary: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  modalSecondaryText: {
+    color: colors.brand,
+    fontWeight: '600',
   },
 });

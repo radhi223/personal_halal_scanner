@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,17 @@ export default function ScanScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const [torch, setTorch] = useState(false);
+
+  // If the user backs out while a scan is processing, drop the navigation when
+  // the awaits resolve instead of replacing the screen underneath them.
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
 
   async function processImage(imageUri: string, imageWidth?: number, imageHeight?: number) {
     const sid = dscanId();
@@ -202,10 +213,16 @@ export default function ScanScreen() {
         cropped,
         lowQuality,
       });
+      if (cancelledRef.current) return;
       router.replace('/result');
     } catch (err) {
+      // Full technical error stays in the debug log; the user gets an action.
       dlog(`[${sid}] FATAL ${String(err)}`);
-      Alert.alert('Gagal memproses', String(err));
+      Alert.alert(
+        'Gagal memproses',
+        'Terjadi kesalahan saat membaca label. Coba pindai ulang — bila berulang, ambil foto dari galeri.',
+        [{ text: 'Pindai Ulang' }]
+      );
     } finally {
       setBusy(false);
     }
@@ -264,12 +281,29 @@ export default function ScanScreen() {
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing="back"
+        enableTorch={torch}
         onCameraReady={() => setReady(true)}
       />
 
       <View style={styles.hintWrap} pointerEvents="none">
         <Text style={styles.hint}>Arahkan ke daftar bahan (原材料名)</Text>
       </View>
+
+      <Pressable
+        style={[styles.torchBtn, torch && styles.torchBtnOn, busy && styles.ctrlDisabled]}
+        onPress={() => setTorch((v) => !v)}
+        disabled={busy}
+        hitSlop={8}>
+        <Text style={styles.torchText}>{torch ? 'ON' : 'OFF'}</Text>
+      </Pressable>
+
+      {busy && (
+        <View style={styles.busyOverlay} pointerEvents="none">
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.busyTitle}>Membaca label…</Text>
+          <Text style={styles.busySub}>Tahan kamera tetap diam</Text>
+        </View>
+      )}
 
       <View style={styles.controls}>
         <Pressable style={styles.galleryBtn} onPress={pickFromGallery} disabled={busy}>
@@ -344,6 +378,50 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     fontSize: 13,
     overflow: 'hidden',
+  },
+  torchBtn: {
+    position: 'absolute',
+    top: 68,
+    right: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  torchBtnOn: {
+    backgroundColor: colors.brand,
+  },
+  torchText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  ctrlDisabled: {
+    opacity: 0.5,
+  },
+  busyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  busyTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  busySub: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
   },
   controls: {
     position: 'absolute',

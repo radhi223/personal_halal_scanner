@@ -36,6 +36,21 @@ export const verdictToneColor: Record<VerdictTone, string> = {
   ok: colors.halal,
 };
 
+/**
+ * One actionable line per status, shown on every result card. The verdict alone
+ * tells the user WHAT we think; this tells them WHAT TO DO (user audit: the
+ * cards never said what action to take).
+ */
+export const statusGuidance: Record<HalalStatus, string> = {
+  haram: 'Jangan dikonsumsi. Produk ini mengandung bahan haram.',
+  syubhat:
+    'Sebaiknya hindari dulu. Cari logo halal pada kemasan atau cek keterangan asal bahan; bila masih ragu, tinggalkan (prinsip syubhat).',
+  unknown:
+    'Belum ditinjau — bukan berarti aman. Cek nama ini di menu Cari Bahan atau label aslinya.',
+  halal:
+    'Bahan ini halal berdasarkan sumber yang dikutip. Tetap cek bahan lain pada label.',
+};
+
 export const statusRank: Record<HalalStatus, number> = {
   haram: 0,
   syubhat: 1,
